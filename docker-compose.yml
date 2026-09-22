@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: yaksok-mysql
+    container_name: yaksok
     environment:
       MYSQL_ROOT_PASSWORD: 1234
       MYSQL_DATABASE: yaksok
