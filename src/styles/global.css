@@ -12,30 +12,24 @@
   --text-sub: #7A9BA8;
   --border: #D6EFF4;
   --max-width: 390px;
-  --radius: 16px;
 }
 
 html, body, #root {
   height: 100%;
   font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+  background: #e8e8e8;
 }
 
-/* 데스크탑: 전체 화면 */
 #root {
-  min-height: 100vh;
-  background: var(--bg);
+  display: flex;
+  justify-content: center;
 }
 
 .app-container {
   width: 100%;
+  max-width: var(--max-width);
   min-height: 100vh;
   background: var(--bg);
-}
-
-/* 모바일: 390px */
-@media (max-width: 480px) {
-  .app-container {
-    max-width: 390px;
-    margin: 0 auto;
-  }
+  position: relative;
+  overflow-x: hidden;
 }
