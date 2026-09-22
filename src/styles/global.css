@@ -1,0 +1,35 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --primary: #3BBFD4;
+  --primary-dark: #1E9CB5;
+  --danger: #F05A5A;
+  --warning: #F5BC3D;
+  --success: #22C98A;
+  --bg: #F7FAFC;
+  --white: #ffffff;
+  --text: #1A2E35;
+  --text-sub: #7A9BA8;
+  --border: #D6EFF4;
+  --max-width: 390px;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+  background: #e8e8e8;
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+}
+
+.app-container {
+  width: 100%;
+  max-width: var(--max-width);
+  min-height: 100vh;
+  background: var(--bg);
+  position: relative;
+  overflow-x: hidden;
+}
