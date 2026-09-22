@@ -1,0 +1,253 @@
+.container { min-height: 100vh; background: var(--bg); }
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 20px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+
+.logoRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.logo { font-size: 20px; }
+
+.logoText {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.5px;
+}
+
+.greeting {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.date {
+  font-size: 11.5px;
+  color: var(--text-sub);
+  margin-top: 3px;
+}
+
+.alarmBtn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  position: relative;
+  padding: 4px;
+}
+
+.alarmDot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  background: var(--danger);
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+}
+
+.warningBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #FFF3CD;
+  border-bottom: 1.5px solid #F5BC3D;
+  padding: 13px 20px;
+  cursor: pointer;
+}
+
+.warningIcon { font-size: 24px; }
+
+.warningTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #856404;
+}
+
+.warningDesc {
+  font-size: 11.5px;
+  color: #C98A1A;
+  margin-top: 2px;
+}
+
+.content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid var(--border);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cardBadge {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--bg);
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.progressBar {
+  height: 10px;
+  background: var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+  border-radius: 10px;
+  transition: width 0.4s ease;
+}
+
+.pctRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pct {
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.allDone {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+.nextCard {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(59,191,212,0.3);
+}
+
+.nextLabel {
+  font-size: 11.5px;
+  color: rgba(255,255,255,0.75);
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.nextRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nextIcon { font-size: 32px; }
+
+.nextName {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.nextTime {
+  font-size: 14px;
+  color: rgba(255,255,255,0.8);
+  margin-top: 3px;
+}
+
+.medItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.medItem:last-child { border-bottom: none; }
+
+.check {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #fff;
+  flex-shrink: 0;
+  transition: all 0.13s;
+}
+
+.checked {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.medInfo { flex: 1; }
+
+.medName {
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.13s;
+}
+
+.medTime {
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+
+.doneTag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--success);
+  background: #E0FAF0;
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+
+.disclaimer {
+  padding: 12px 14px;
+  background: #EDF6F9;
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-sub);
+  line-height: 1.6;
+  border: 1px solid var(--border);
+  text-align: center;
+}

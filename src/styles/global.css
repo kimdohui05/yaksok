@@ -1,0 +1,41 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --primary: #3BBFD4;
+  --primary-dark: #1E9CB5;
+  --danger: #F05A5A;
+  --warning: #F5BC3D;
+  --success: #22C98A;
+  --bg: #F7FAFC;
+  --white: #ffffff;
+  --text: #1A2E35;
+  --text-sub: #7A9BA8;
+  --border: #D6EFF4;
+  --max-width: 390px;
+  --radius: 16px;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+}
+
+/* 데스크탑: 전체 화면 */
+#root {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.app-container {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+/* 모바일: 390px */
+@media (max-width: 480px) {
+  .app-container {
+    max-width: 390px;
+    margin: 0 auto;
+  }
+}
