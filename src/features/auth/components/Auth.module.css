@@ -1,0 +1,140 @@
+.container {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 회원가입 헤더 */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--text);
+  width: 32px;
+}
+
+.title { font-size: 16px; font-weight: 700; color: var(--text); }
+
+.headerSpacer { width: 32px; }
+
+/* 로그인 로고 영역 */
+.brand {
+  padding: 72px 24px 40px;
+  text-align: center;
+}
+
+.logo { font-size: 48px; margin-bottom: 8px; }
+
+.logoText {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.5px;
+}
+
+.tagline {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-sub);
+}
+
+/* 폼 */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 15px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input:focus { border-color: var(--primary); }
+
+.input::placeholder { color: var(--text-sub); }
+
+.inputError { border-color: var(--danger); }
+
+.fieldError {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.formError {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #FDECEC;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.submitBtn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.submitBtn:hover:not(:disabled) { background: var(--primary-dark); }
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 하단 링크 */
+.switchRow {
+  padding: 8px 20px 32px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-sub);
+}
+
+.switchLink {
+  margin-left: 6px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  cursor: pointer;
+}

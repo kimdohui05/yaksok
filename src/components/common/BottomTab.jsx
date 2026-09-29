@@ -5,8 +5,8 @@ const tabs = [
   { path: '/home', icon: '🏠', label: '홈' },
   { path: '/medicine', icon: '💊', label: '약 목록' },
   { path: '/medicine/add', icon: '➕', label: '약 추가' },
-  { path: '/alarm', icon: '🔔', label: '알림' },
   { path: '/schedule', icon: '📅', label: '일정' },
+  { path: '/mypage', icon: '👤', label: '내 정보' },
 ]
 
 export default function BottomTab() {
