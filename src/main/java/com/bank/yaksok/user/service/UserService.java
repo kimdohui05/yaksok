@@ -31,7 +31,9 @@ public class UserService {
         userRepository.save(user);
     }
 
-    public String login(LoginDto request) {
+    public record LoginResult(String token, String name) {}
+
+    public LoginResult login(LoginDto request) {
         UserEntity user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
 
@@ -39,6 +41,7 @@ public class UserService {
             throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 
-        return jwtTokenProvider.generateToken(user.getEmail());
+        String token = jwtTokenProvider.generateToken(user.getEmail());
+        return new LoginResult(token, user.getName());
     }
 }
