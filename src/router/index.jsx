@@ -6,6 +6,7 @@ import AlarmPage from '../features/alarm/components/AlarmPage'
 import SchedulePage from '../features/schedule/components/SchedulePage'
 import LoginPage from '../features/auth/components/LoginPage'
 import SignupPage from '../features/auth/components/SignupPage'
+import MyPage from '../features/mypage/components/MyPage'
 
 const isLoggedIn = () => !!localStorage.getItem('token')
 
@@ -30,6 +31,7 @@ export default function Router() {
       <Route path="/medicine/add" element={<PrivateRoute><MedicineAddPage /></PrivateRoute>} />
       <Route path="/alarm" element={<PrivateRoute><AlarmPage /></PrivateRoute>} />
       <Route path="/schedule" element={<PrivateRoute><SchedulePage /></PrivateRoute>} />
+      <Route path="/mypage" element={<PrivateRoute><MyPage /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

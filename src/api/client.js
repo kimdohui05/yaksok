@@ -3,6 +3,9 @@ import axios from 'axios'
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 10000,
+  headers: {
+    'ngrok-skip-browser-warning': 'true'
+  }
 })
 
 client.interceptors.request.use(config => {
