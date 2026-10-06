@@ -29,8 +29,8 @@ export default function Router() {
       <Route path="/medicine/add" element={<PrivateRoute><MedicineAddPage /></PrivateRoute>} />
       <Route path="/alarm" element={<PrivateRoute><AlarmPage /></PrivateRoute>} />
       <Route path="/schedule" element={<PrivateRoute><SchedulePage /></PrivateRoute>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
       <Route path="/mypage" element={<PrivateRoute><MyPage /></PrivateRoute>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
