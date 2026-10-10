@@ -1,6 +1,6 @@
 import client from '../../../api/client'
 
-// POST /user/login  { email, password } → { token }
+// POST /user/login  { email, password } → { token, name }
 export const login = ({ email, password }) =>
   client.post('/user/login', { email, password }).then(res => res.data)
 

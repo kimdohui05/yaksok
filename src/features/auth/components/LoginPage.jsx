@@ -23,8 +23,9 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      const { token } = await login({ email: form.email.trim(), password: form.password })
+      const { token, name } = await login({ email: form.email.trim(), password: form.password })
       localStorage.setItem('token', token)
+      if (name) localStorage.setItem('nickname', name)
       navigate('/home', { replace: true })
     } catch (err) {
       setError(getErrorMessage(err, '이메일 또는 비밀번호가 올바르지 않습니다.'))

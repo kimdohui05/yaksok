@@ -1,115 +1,119 @@
-.container { min-height: 100vh; background: var(--bg); }
+.container { min-height: 100vh; background: #F3F7F9; }
+
+/* 상단 흰 영역 */
+.top { background: #fff; padding-bottom: 24px; }
 
 .header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 20px; background: #fff; border-bottom: 1px solid var(--border);
+  padding: 24px 22px 16px;
 }
-.title { font-size: 17px; font-weight: 800; color: var(--text); }
-
-/* 프로필 카드 */
-.profileCard {
-  display: flex; align-items: center; gap: 16px;
-  margin: 16px 16px 0; padding: 20px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  border-radius: 20px;
-  box-shadow: 0 4px 16px rgba(59,191,212,0.3);
+.title { font-size: 24px; font-weight: 800; color: var(--text); }
+.editBtn {
+  background: none; border: none; padding: 4px;
+  font-size: 14px; font-weight: 700; color: var(--text);
+  cursor: pointer; font-family: inherit;
 }
 
-.avatar {
-  width: 56px; height: 56px; border-radius: 50%;
-  background: rgba(255,255,255,0.3);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px; font-weight: 800; color: #fff;
-  flex-shrink: 0;
+/* 복약 카드 */
+.medCard {
+  margin: 0 18px; padding: 22px 24px 24px;
+  background: linear-gradient(135deg, #22AFC2 0%, #137C8C 100%);
+  border-radius: 22px;
+  box-shadow: 0 10px 24px rgba(19,124,140,0.28);
+  color: #fff;
+}
+.medCardLabel {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.75);
+}
+.medCardName { font-size: 26px; font-weight: 800; margin-top: 8px; }
+.medCardSub { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.85); margin-top: 16px; }
+.medChips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.medChip {
+  background: #fff; color: #116F7D;
+  font-size: 14px; font-weight: 700;
+  padding: 7px 11px; border-radius: 9px;
 }
 
-.profileInfo { flex: 1; }
-.name { font-size: 18px; font-weight: 800; color: #fff; }
-.email { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 3px; }
+/* 아래 회색 영역 */
+.body { padding: 22px 18px 0; display: flex; flex-direction: column; gap: 16px; }
 
-/* 섹션 */
-.section { padding: 16px 16px 0; }
-.sectionTitle {
-  font-size: 12px; font-weight: 700; color: var(--text-sub);
-  text-transform: uppercase; letter-spacing: 0.8px;
-  margin-bottom: 10px;
+/* 통계 카드 */
+.statGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.statCard {
+  background: #fff; border: 1px solid #E3ECEF; border-radius: 18px;
+  padding: 20px 18px; display: flex; flex-direction: column;
 }
-
-/* 통계 그리드 */
-.statGrid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.statItem {
-  background: #fff; border-radius: 14px; padding: 14px 10px;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  border: 1.5px solid var(--border);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-}
-
-.statWarning { border-color: #F5BC3D; background: #FFFCF0; }
-
-.statIcon { font-size: 22px; }
-.statValue { font-size: 16px; font-weight: 800; color: var(--text); }
-.statLabel { font-size: 11px; color: var(--text-sub); font-weight: 500; text-align: center; }
-
-/* 정보 카드 */
-.infoCard {
-  background: #fff; border-radius: 14px; padding: 16px;
-  border: 1.5px solid var(--border);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-  display: flex; flex-direction: column; gap: 12px;
-}
-
-.infoRow {
-  display: flex; align-items: center; justify-content: space-between;
-}
-.infoLabel { font-size: 13px; color: var(--text); font-weight: 500; }
-.infoValue { font-size: 13px; font-weight: 700; color: var(--primary); }
-
-.linkBtn {
-  background: none; border: none; padding: 0;
-  font-size: 13px; font-weight: 700; color: var(--primary);
+.statWarning { background: #FDF1E3; border-color: #F6DCBC; }
+.statLabel { font-size: 13px; color: var(--text-sub); }
+.statWarning .statLabel { color: #9A6A35; }
+.statValue { font-size: 26px; font-weight: 800; color: var(--text); margin-top: 10px; }
+.statWarning .statValue { color: #B2620C; }
+.progress { height: 5px; background: #E0EAEE; border-radius: 3px; margin-top: 12px; overflow: hidden; }
+.progressFill { height: 100%; background: #1E9CB5; border-radius: 3px; }
+.warningLink {
+  background: none; border: none; padding: 0; margin-top: 10px;
+  font-size: 13px; font-weight: 700; color: #8A4B08;
   cursor: pointer; font-family: inherit; text-align: left;
 }
 
-/* 설정 */
-.settingRow {
-  display: flex; align-items: center; justify-content: space-between;
+/* 공통 카드 */
+.card {
+  background: #fff; border: 1px solid #E3ECEF; border-radius: 18px;
+  padding: 20px;
 }
-.settingLabel { font-size: 14px; font-weight: 600; color: var(--text); }
-.settingDesc { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+
+/* 다음 약국 방문일 */
+.visitRow { display: flex; align-items: center; gap: 16px; }
+.ddayBox {
+  width: 58px; height: 58px; flex-shrink: 0; border-radius: 12px;
+  border: 1.5px solid #1E9CB5; background: #E3F4F8;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #137C8C;
+}
+.ddayEmpty { border-style: dashed; border-color: #B7CDD4; background: none; color: #9BB2BA; }
+.ddayPrefix { font-size: 10px; font-weight: 600; }
+.ddayNum { font-size: 18px; font-weight: 800; line-height: 1.1; }
+.visitInfo { flex: 1; min-width: 0; }
+.visitTitle { font-size: 16px; font-weight: 800; color: var(--text); }
+.visitDesc { font-size: 12.5px; color: var(--text-sub); line-height: 1.5; margin-top: 4px; }
+.registerBtn {
+  flex-shrink: 0; padding: 10px 12px;
+  background: #1E9CB5; color: #fff; border: none; border-radius: 10px;
+  font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.registerBtn:hover { background: #178AA1; }
+
+/* 복약 알림 */
+.settingRow { display: flex; align-items: center; justify-content: space-between; }
+.settingLabel { font-size: 16px; font-weight: 600; color: var(--text); }
+.settingDesc { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
 
 .toggle {
-  width: 48px; height: 28px; border-radius: 14px;
-  background: var(--border); position: relative;
+  width: 52px; height: 30px; border-radius: 15px; border: none; padding: 0;
+  background: #D3DEE2; position: relative;
   cursor: pointer; transition: background 0.2s; flex-shrink: 0;
 }
-.toggleOn { background: var(--primary); }
+.toggleOn { background: #1E9CB5; }
 .toggleThumb {
   position: absolute; top: 3px; left: 3px;
-  width: 22px; height: 22px; border-radius: 50%;
+  width: 24px; height: 24px; border-radius: 50%;
   background: #fff; transition: transform 0.2s;
   box-shadow: 0 1px 4px rgba(0,0,0,0.2);
 }
-.toggleOn .toggleThumb { transform: translateX(20px); }
+.toggleOn .toggleThumb { transform: translateX(22px); }
+
+.divider { height: 1px; background: #EEF3F5; margin: 18px 0; }
+
+.logoutBtn {
+  background: none; border: none; padding: 0;
+  font-size: 16px; font-weight: 600; color: #D9363E;
+  cursor: pointer; font-family: inherit;
+}
 
 /* 면책 고지 */
 .disclaimer {
-  margin: 16px 16px 0; padding: 12px 14px;
-  background: #EDF6F9; border-radius: 10px;
-  font-size: 11px; color: var(--text-sub); line-height: 1.6;
-  border: 1px solid var(--border); text-align: center;
+  padding: 0 10px 16px; text-align: center;
+  font-size: 13px; color: var(--text-sub); line-height: 1.7;
 }
-
-/* 로그아웃 */
-.bottomSection { padding: 16px; }
-.logoutBtn {
-  width: 100%; padding: 14px;
-  border-radius: 12px; border: 1.5px solid #FEECEC;
-  background: #FEECEC; font-size: 14px; font-weight: 700;
-  color: var(--danger); cursor: pointer; font-family: inherit;
-  transition: all 0.13s;
-}
-.logoutBtn:hover { background: var(--danger); color: #fff; }

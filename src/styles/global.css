@@ -20,6 +20,17 @@ html, body, #root {
   background: #e8e8e8;
 }
 
+/* 스크롤은 되지만 스크롤바는 안 보이게 (모바일 앱처럼)
+   실제 스크롤은 .app-container 안에서 일어남 (overflow-x: hidden 때문) */
+html, body, .app-container {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.app-container::-webkit-scrollbar {
+  display: none;
+}
+
 #root {
   display: flex;
   justify-content: center;
