@@ -101,3 +101,53 @@
 }
 .empty span { font-size: 40px; }
 .empty p { font-size: 14px; }
+/* 알림 설정 카드 */
+.settingCard {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 14px 16px 0; padding: 16px;
+  background: #fff; border-radius: 14px;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.settingInfo { flex: 1; }
+.settingTitle { font-size: 14px; font-weight: 700; color: var(--text); }
+.settingDesc { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
+
+/* 토글 */
+.toggle {
+  width: 48px; height: 28px; border-radius: 14px;
+  background: var(--border); position: relative;
+  cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+}
+.toggleOn { background: var(--primary); }
+.toggleThumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #fff; transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.toggleOn .toggleThumb { transform: translateX(20px); }
+
+/* 복약 일정 */
+.scheduleCard {
+  margin: 12px 16px 0; padding: 16px;
+  background: #fff; border-radius: 14px;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.scheduleTitle { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+.scheduleItem {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.scheduleItem:last-child { border-bottom: none; }
+.scheduleIcon { font-size: 18px; }
+.scheduleMed { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+.scheduleTime { font-size: 13px; font-weight: 700; color: var(--primary); }
+
+/* 섹션 타이틀 */
+.sectionTitle {
+  padding: 16px 16px 8px;
+  font-size: 12px; font-weight: 700;
+  color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.8px;
+}

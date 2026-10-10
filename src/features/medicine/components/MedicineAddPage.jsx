@@ -1,16 +1,16 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styles from './MedicineAddPage.module.css'
 
 export default function MedicineAddPage() {
   const navigate = useNavigate()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState([])
+  const fileInputRef = useRef(null)
   const [selectedMed, setSelectedMed] = useState(null)
   const [frequency, setFrequency] = useState('')
   const [times, setTimes] = useState([''])
-  const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
 
   // 처방전 관련 상태
   const [prescriptionDays, setPrescriptionDays] = useState('')
@@ -19,18 +19,29 @@ export default function MedicineAddPage() {
   )
   const [nextVisit, setNextVisit] = useState(null)
 
-  const handleSearch = () => {
-    if (!searchQuery.trim()) return
-    setLoading(true)
-    setTimeout(() => {
-      setSearchResults([
-        { id: 1, name: searchQuery, ingredient: '성분 정보 (공공 API 연동 예정)', effect: '효능 정보 (공공 API 연동 예정)' },
-      ])
-      setLoading(false)
-    }, 600)
+  const handlePhotoClick = () => fileInputRef.current?.click()
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      setPhotoPreview(ev.target.result)
+      setAnalyzing(true)
+      // 추후 OCR API 연동 - 임시 더미
+      setTimeout(() => {
+        setSelectedMed({
+          name: '타이레놀',
+          ingredient: '아세트아미노펜 500mg (OCR 인식 결과)',
+          effect: '해열, 진통'
+        })
+        setAnalyzing(false)
+        setStep(2)
+      }, 1500)
+    }
+    reader.readAsDataURL(file)
   }
 
-  const handleSelect = (med) => { setSelectedMed(med); setStep(2) }
   const addTime = () => setTimes([...times, ''])
   const removeTime = (i) => setTimes(times.filter((_, idx) => idx !== i))
   const updateTime = (i, val) => setTimes(times.map((t, idx) => idx === i ? val : t))
@@ -38,7 +49,7 @@ export default function MedicineAddPage() {
   const calcNextVisit = () => {
     if (!prescriptionDays || !prescriptionDate) return
     const start = new Date(prescriptionDate)
-    start.setDate(start.getDate() + Number(prescriptionDays) - 2) // 2일 전 알림
+    start.setDate(start.getDate() + Number(prescriptionDays) - 2)
     const formatted = start.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
     setNextVisit(formatted)
   }
@@ -49,13 +60,13 @@ export default function MedicineAddPage() {
     navigate('/medicine')
   }
 
-  const stepTitles = { 1: '약 검색', 2: '복용 설정', 3: '처방전 등록' }
+  const stepTitles = { 1: '약 사진 촬영', 2: '복용 설정', 3: '처방전 등록' }
 
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <button className={styles.backBtn} onClick={() => {
-          if (step > 1) setStep(step - 1)
+          if (step > 1) { setStep(step - 1) }
           else navigate(-1)
         }}>←</button>
         <h1 className={styles.title}>{stepTitles[step]}</h1>
@@ -72,48 +83,64 @@ export default function MedicineAddPage() {
         ))}
       </div>
 
-      {/* Step 1: 약 검색 */}
+      {/* Step 1: 사진 촬영 */}
       {step === 1 && (
         <div className={styles.content}>
-          <button className={styles.photoBtn}>
-            <span className={styles.photoBtnIcon}>📷</span>
-            <div>
-              <div className={styles.photoBtnTitle}>사진으로 검색</div>
-              <div className={styles.photoBtnSub}>처방전이나 약봉투를 찍어보세요</div>
+          <div className={styles.photoGuide}>
+            <div className={styles.photoGuideIcon}>📋</div>
+            <div className={styles.photoGuideTitle}>처방전 또는 약봉투를 촬영해주세요</div>
+            <div className={styles.photoGuideDesc}>
+              AI가 자동으로 약 정보를 인식합니다
             </div>
-          </button>
-
-          <div className={styles.divider}><span>또는 직접 검색</span></div>
-
-          <div className={styles.searchRow}>
-            <input
-              className={styles.searchInput}
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSearch()}
-              placeholder="약 이름을 입력하세요"
-            />
-            <button className={styles.searchBtn} onClick={handleSearch} disabled={loading}>
-              {loading ? '...' : '검색'}
-            </button>
           </div>
 
-          {searchResults.length > 0 && (
-            <div className={styles.results}>
-              <div className={styles.resultsTitle}>검색 결과</div>
-              {searchResults.map(r => (
-                <div key={r.id} className={styles.resultItem} onClick={() => handleSelect(r)}>
-                  <div className={styles.resultIcon}>💊</div>
-                  <div className={styles.resultInfo}>
-                    <div className={styles.resultName}>{r.name}</div>
-                    <div className={styles.resultSub}>{r.ingredient}</div>
-                  </div>
-                  <span className={styles.resultArrow}>›</span>
+          {/* 사진 미리보기 */}
+          {photoPreview ? (
+            <div className={styles.previewWrap}>
+              <img src={photoPreview} alt="촬영된 사진" className={styles.preview} />
+              {analyzing && (
+                <div className={styles.analyzingOverlay}>
+                  <div className={styles.spinner} />
+                  <span>약 정보 분석 중...</span>
                 </div>
-              ))}
+              )}
+            </div>
+          ) : (
+            <div className={styles.cameraWrap} onClick={handlePhotoClick}>
+              <div className={styles.cameraIcon}>📷</div>
+              <div className={styles.cameraText}>눌러서 사진 촬영 또는 선택</div>
+              <div className={styles.cameraSub}>카메라 또는 갤러리에서 선택</div>
             </div>
           )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: 'none' }}
+            onChange={handlePhotoChange}
+          />
+
+          {photoPreview && !analyzing && (
+            <button className={styles.retakeBtn} onClick={() => {
+              setPhotoPreview(null)
+              setSelectedMed(null)
+            }}>
+              🔄 다시 촬영하기
+            </button>
+          )}
+
+          <div className={styles.tipBox}>
+            <div className={styles.tipTitle}>📌 촬영 팁</div>
+            <div className={styles.tipItem}>• 처방전 전체가 보이도록 찍어주세요</div>
+            <div className={styles.tipItem}>• 밝은 곳에서 촬영하면 인식률이 높아요</div>
+            <div className={styles.tipItem}>• 약봉투의 약 이름 부분을 선명하게 찍어주세요</div>
+          </div>
+
+          <div className={styles.disclaimer}>
+            ⚕️ 본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.
+          </div>
         </div>
       )}
 
