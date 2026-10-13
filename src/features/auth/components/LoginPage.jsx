@@ -20,11 +20,11 @@ export default function LoginPage() {
       setError('이메일과 비밀번호를 입력해 주세요.')
       return
     }
-
     setLoading(true)
     try {
-      const { token } = await login({ email: form.email.trim(), password: form.password })
+      const { token, name } = await login({ email: form.email.trim(), password: form.password })
       localStorage.setItem('token', token)
+      localStorage.setItem('nickname', name)
       navigate('/home', { replace: true })
     } catch (err) {
       setError(getErrorMessage(err, '이메일 또는 비밀번호가 올바르지 않습니다.'))
@@ -35,36 +35,33 @@ export default function LoginPage() {
 
   return (
     <div className={styles.container}>
-      {/* 로고 */}
+      {/* 로고 영역 */}
       <div className={styles.brand}>
         <div className={styles.logo}>💊</div>
         <div className={styles.logoText}>약속</div>
-        <div className={styles.tagline}>복약 관리를 시작해 보세요</div>
+        <p className={styles.tagline}>나만의 복약 도우미</p>
       </div>
 
-      <form className={styles.form} onSubmit={handleSubmit} noValidate>
+      <form className={styles.form} onSubmit={handleSubmit}>
         <div className={styles.field}>
-          <label className={styles.label} htmlFor="email">이메일</label>
+          <label className={styles.label}>이메일</label>
           <input
-            id="email"
-            name="email"
-            type="email"
             className={styles.input}
-            placeholder="example@email.com"
+            type="email"
+            name="email"
+            placeholder="이메일 입력"
             value={form.email}
             onChange={handleChange}
             autoComplete="email"
           />
         </div>
-
         <div className={styles.field}>
-          <label className={styles.label} htmlFor="password">비밀번호</label>
+          <label className={styles.label}>비밀번호</label>
           <input
-            id="password"
-            name="password"
-            type="password"
             className={styles.input}
-            placeholder="비밀번호를 입력하세요"
+            type="password"
+            name="password"
+            placeholder="비밀번호 입력"
             value={form.password}
             onChange={handleChange}
             autoComplete="current-password"
@@ -73,14 +70,23 @@ export default function LoginPage() {
 
         {error && <div className={styles.formError}>{error}</div>}
 
-        <button type="submit" className={styles.submitBtn} disabled={loading}>
+        <button
+          className={styles.submitBtn}
+          type="submit"
+          disabled={loading}
+        >
           {loading ? '로그인 중...' : '로그인'}
         </button>
       </form>
 
       <div className={styles.switchRow}>
-        아직 계정이 없으신가요?
-        <button className={styles.switchLink} onClick={() => navigate('/signup')}>회원가입</button>
+        계정이 없으신가요?
+        <button
+          className={styles.switchLink}
+          onClick={() => navigate('/signup')}
+        >
+          회원가입
+        </button>
       </div>
     </div>
   )

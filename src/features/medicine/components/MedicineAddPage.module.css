@@ -306,3 +306,25 @@
 }
 .tipTitle { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
 .tipItem { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+
+/* 등록 방법 선택 카드 */
+.modeCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 16px;
+  cursor: pointer;
+  transition: all 0.13s;
+}
+.modeCard:hover {
+  border-color: var(--primary);
+  background: #F0FBFD;
+}
+.modeIcon { font-size: 28px; flex-shrink: 0; }
+.modeInfo { flex: 1; }
+.modeTitle { font-size: 15px; font-weight: 700; color: var(--text); }
+.modeSub { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
+.modeArrow { font-size: 18px; color: var(--text-sub); }

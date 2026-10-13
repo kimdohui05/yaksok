@@ -17,7 +17,10 @@ const DUMMY_TODAY = [
 export default function MyPage() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
-  const [alarmOn, setAlarmOn] = useState(true)
+  // alarmEnabled: localStorage와 동기화
+  const [alarmOn, setAlarmOn] = useState(
+    localStorage.getItem('alarmEnabled') !== 'false'
+  )
   const [loading, setLoading] = useState(true)
 
   const nickname = localStorage.getItem('nickname') || '사용자'
@@ -35,6 +38,22 @@ export default function MyPage() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  const handleAlarmToggle = async () => {
+    // 알림 켤 때 권한 요청
+    if (!alarmOn) {
+      if ('Notification' in window && Notification.permission === 'default') {
+        const result = await Notification.requestPermission()
+        if (result !== 'granted') {
+          alert('브라우저 설정에서 알림을 허용해주세요.')
+          return
+        }
+      }
+    }
+    const next = !alarmOn
+    setAlarmOn(next)
+    localStorage.setItem('alarmEnabled', String(next))
+  }
 
   const handleLogout = () => {
     localStorage.clear()
@@ -106,11 +125,13 @@ export default function MyPage() {
           <div className={styles.settingRow}>
             <div>
               <div className={styles.settingLabel}>복약 알림</div>
-              <div className={styles.settingDesc}>복약 시간에 알림을 받습니다</div>
+              <div className={styles.settingDesc}>
+                {alarmOn ? '✅ 복약 시간마다 알림을 받고 있어요' : '🔕 알림이 꺼져 있어요'}
+              </div>
             </div>
             <div
               className={`${styles.toggle} ${alarmOn ? styles.toggleOn : ''}`}
-              onClick={() => setAlarmOn(!alarmOn)}
+              onClick={handleAlarmToggle}
             >
               <div className={styles.toggleThumb} />
             </div>

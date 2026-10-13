@@ -1,22 +1,46 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import client from '../../../api/client'
 import BottomTab from '../../../components/common/BottomTab'
-import MedicineCard from '../../../components/common/MedicineCard'
 import styles from './MedicineListPage.module.css'
-
-const DUMMY = [
-  { id: 1, name: '타이레놀', ingredient: '아세트아미노펜 500mg', frequency: '하루 3회 식후', hasWarning: true, warningMsg: '아스피린과 함께 복용 시 출혈 위험 증가' },
-  { id: 2, name: '아스피린', ingredient: '아세틸살리실산 100mg', frequency: '하루 1회 아침', hasWarning: true, warningMsg: '타이레놀과 함께 복용 시 출혈 위험 증가' },
-  { id: 3, name: '오메가3', ingredient: '어유 1000mg', frequency: '하루 1회 저녁', hasWarning: false, warningMsg: '' },
-]
 
 export default function MedicineListPage() {
   const navigate = useNavigate()
-  const [medicines] = useState(DUMMY)
+  const [medicines, setMedicines] = useState([])
+  const [loading, setLoading] = useState(true)
   const [aiModal, setAiModal] = useState(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiText, setAiText] = useState('')
-  const warningCnt = medicines.filter(m => m.hasWarning).length
+  const [deletingId, setDeletingId] = useState(null)
+
+  const fetchMedicines = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await client.get('/medications')
+      setMedicines(res.data)
+    } catch (err) {
+      console.error('약 목록 불러오기 실패', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchMedicines()
+  }, [fetchMedicines])
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('이 약을 삭제하시겠습니까?')) return
+    setDeletingId(id)
+    try {
+      await client.delete(`/medications/${id}`)
+      setMedicines(prev => prev.filter(m => m.id !== id))
+    } catch (err) {
+      alert('삭제에 실패했습니다. 다시 시도해주세요.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const handleAiClick = async (medicine) => {
     setAiModal(medicine)
@@ -24,9 +48,20 @@ export default function MedicineListPage() {
     setAiText('')
     // 추후 Gemini API 연동 - 임시 더미
     setTimeout(() => {
-      setAiText(`${medicine.name}(${medicine.ingredient})은 ${medicine.frequency} 복용하는 약입니다. ${medicine.hasWarning ? medicine.warningMsg + ' 반드시 의사 또는 약사와 상담하세요.' : '현재 등록된 약과 심각한 상호작용은 없습니다.'}`)
+      setAiText(`${medicine.medicineName}은 ${medicine.alarmTime ? formatTime(medicine.alarmTime) + ' 알람' : ''}이 설정된 약입니다. 반드시 의사 또는 약사와 상담하세요.`)
       setAiLoading(false)
     }, 1200)
+  }
+
+  const formatTime = (alarmTime) => {
+    if (!alarmTime) return ''
+    // Jackson이 LocalTime을 배열로 직렬화할 수 있음 [H, m, s]
+    if (Array.isArray(alarmTime)) {
+      const h = String(alarmTime[0]).padStart(2, '0')
+      const m = String(alarmTime[1]).padStart(2, '0')
+      return `${h}:${m}`
+    }
+    return String(alarmTime).substring(0, 5)
   }
 
   return (
@@ -36,18 +71,13 @@ export default function MedicineListPage() {
         <button className={styles.addBtn} onClick={() => navigate('/medicine/add')}>＋ 약 추가</button>
       </header>
 
-      {warningCnt > 0 && (
-        <div className={styles.warningBanner}>
-          <span>⚠️</span>
-          <div>
-            <div className={styles.warningTitle}>상호작용 경고 {warningCnt}건</div>
-            <div className={styles.warningDesc}>공공 API가 감지한 약물 충돌이 있습니다</div>
-          </div>
-        </div>
-      )}
-
       <div className={styles.list}>
-        {medicines.length === 0 ? (
+        {loading ? (
+          <div className={styles.empty}>
+            <div className={styles.spinner} />
+            <p>불러오는 중...</p>
+          </div>
+        ) : medicines.length === 0 ? (
           <div className={styles.empty}>
             <span>💊</span>
             <p>등록된 약이 없습니다</p>
@@ -55,7 +85,33 @@ export default function MedicineListPage() {
           </div>
         ) : (
           medicines.map(m => (
-            <MedicineCard key={m.id} medicine={m} onAiClick={handleAiClick} />
+            <div key={m.id} className={styles.card}>
+              <div className={styles.cardTop}>
+                <div className={styles.iconWrap}>💊</div>
+                <div className={styles.info}>
+                  <div className={styles.name}>{m.medicineName}</div>
+                  {m.alarmTime && (
+                    <div className={styles.ingredient}>⏰ {formatTime(m.alarmTime)} 알람</div>
+                  )}
+                </div>
+              </div>
+
+              <div className={styles.cardActions}>
+                <button
+                  className={styles.aiBtn}
+                  onClick={() => handleAiClick(m)}
+                >
+                  🤖 Gemini AI 복약 설명
+                </button>
+                <button
+                  className={styles.deleteBtn}
+                  onClick={() => handleDelete(m.id)}
+                  disabled={deletingId === m.id}
+                >
+                  {deletingId === m.id ? '삭제 중...' : '🗑️ 삭제'}
+                </button>
+              </div>
+            </div>
           ))
         )}
       </div>
@@ -79,8 +135,10 @@ export default function MedicineListPage() {
             <div className={styles.modalBody}>
               <div className={styles.modalMedRow}>
                 <span>💊</span>
-                <span className={styles.modalMedName}>{aiModal.name}</span>
-                <span className={styles.modalMedSub}>{aiModal.ingredient}</span>
+                <span className={styles.modalMedName}>{aiModal.medicineName}</span>
+                {aiModal.alarmTime && (
+                  <span className={styles.modalMedSub}>{formatTime(aiModal.alarmTime)} 알람</span>
+                )}
               </div>
               {aiLoading ? (
                 <div className={styles.aiLoading}>

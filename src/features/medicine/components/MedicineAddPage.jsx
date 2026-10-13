@@ -1,24 +1,37 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import client from '../../../api/client'
 import styles from './MedicineAddPage.module.css'
 
 export default function MedicineAddPage() {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
-  const [selectedMed, setSelectedMed] = useState(null)
-  const [frequency, setFrequency] = useState('')
-  const [times, setTimes] = useState([''])
+
+  // 입력 방식 선택: 'photo' | 'manual'
+  const [inputMode, setInputMode] = useState(null)
+
+  // 공통 상태
   const [step, setStep] = useState(1)
+  const [selectedMed, setSelectedMed] = useState(null)
+  const [times, setTimes] = useState([''])
+  const [frequency, setFrequency] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // 사진 모드
   const [photoPreview, setPhotoPreview] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
 
-  // 처방전 관련 상태
+  // 직접 입력 모드
+  const [manualName, setManualName] = useState('')
+
+  // 처방전 상태
   const [prescriptionDays, setPrescriptionDays] = useState('')
   const [prescriptionDate, setPrescriptionDate] = useState(
     new Date().toISOString().split('T')[0]
   )
   const [nextVisit, setNextVisit] = useState(null)
 
+  // ── 사진 촬영 ──
   const handlePhotoClick = () => fileInputRef.current?.click()
 
   const handlePhotoChange = (e) => {
@@ -28,12 +41,11 @@ export default function MedicineAddPage() {
     reader.onload = (ev) => {
       setPhotoPreview(ev.target.result)
       setAnalyzing(true)
-      // 추후 OCR API 연동 - 임시 더미
+      // OCR 연동 전 더미 처리
       setTimeout(() => {
         setSelectedMed({
           name: '타이레놀',
           ingredient: '아세트아미노펜 500mg (OCR 인식 결과)',
-          effect: '해열, 진통'
         })
         setAnalyzing(false)
         setStep(2)
@@ -42,32 +54,74 @@ export default function MedicineAddPage() {
     reader.readAsDataURL(file)
   }
 
+  // ── 직접 입력 ──
+  const handleManualNext = () => {
+    if (!manualName.trim()) return
+    setSelectedMed({ name: manualName.trim(), ingredient: '직접 입력' })
+    setStep(2)
+  }
+
+  // ── 복용 시간 ──
   const addTime = () => setTimes([...times, ''])
   const removeTime = (i) => setTimes(times.filter((_, idx) => idx !== i))
   const updateTime = (i, val) => setTimes(times.map((t, idx) => idx === i ? val : t))
 
+  // ── 처방전 계산 ──
   const calcNextVisit = () => {
     if (!prescriptionDays || !prescriptionDate) return
     const start = new Date(prescriptionDate)
     start.setDate(start.getDate() + Number(prescriptionDays) - 2)
-    const formatted = start.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
+    const formatted = start.toLocaleDateString('ko-KR', {
+      year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+    })
     setNextVisit(formatted)
+    localStorage.setItem('nextVisit', formatted)
   }
 
-  const handleSave = () => {
+  // ── 저장 (백엔드 연동) ──
+  const handleSave = async () => {
     if (!selectedMed) return
-    alert('약이 등록되었습니다!')
-    navigate('/medicine')
+    const validTimes = times.filter(t => t)
+    if (validTimes.length === 0) {
+      alert('복용 시간을 최소 1개 입력해주세요.')
+      return
+    }
+    setSaving(true)
+    try {
+      // 첫 번째 시간만 등록 (복수 시간은 여러 번 호출)
+      for (const t of validTimes) {
+        await client.post('/medications', {
+          medicineName: selectedMed.name,
+          alarmTime: t + ':00', // "HH:mm:ss" 형식
+        })
+      }
+      alert('약이 등록되었습니다!')
+      navigate('/medicine')
+    } catch (err) {
+      alert('등록에 실패했습니다. 다시 시도해주세요.')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const stepTitles = { 1: '약 사진 촬영', 2: '복용 설정', 3: '처방전 등록' }
+  const stepTitles = {
+    1: inputMode === 'manual' ? '약 이름 입력' : inputMode === 'photo' ? '약 사진 촬영' : '등록 방법 선택',
+    2: '복용 설정',
+    3: '처방전 등록'
+  }
 
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <button className={styles.backBtn} onClick={() => {
-          if (step > 1) { setStep(step - 1) }
-          else navigate(-1)
+          if (step > 1) {
+            setStep(step - 1)
+            if (step === 2) { setSelectedMed(null); setInputMode(null) }
+          } else if (inputMode && step === 1) {
+            setInputMode(null)
+          } else {
+            navigate(-1)
+          }
         }}>←</button>
         <h1 className={styles.title}>{stepTitles[step]}</h1>
         <div style={{ width: '32px' }} />
@@ -83,18 +137,50 @@ export default function MedicineAddPage() {
         ))}
       </div>
 
-      {/* Step 1: 사진 촬영 */}
-      {step === 1 && (
+      {/* Step 1: 등록 방법 선택 */}
+      {step === 1 && !inputMode && (
+        <div className={styles.content}>
+          <div className={styles.photoGuide}>
+            <div className={styles.photoGuideIcon}>💊</div>
+            <div className={styles.photoGuideTitle}>약을 어떻게 등록할까요?</div>
+            <div className={styles.photoGuideDesc}>사진 촬영 또는 직접 입력 중 선택하세요</div>
+          </div>
+
+          {/* 사진 촬영 선택 */}
+          <div className={styles.modeCard} onClick={() => setInputMode('photo')}>
+            <div className={styles.modeIcon}>📷</div>
+            <div className={styles.modeInfo}>
+              <div className={styles.modeTitle}>처방전 / 약봉투 사진 촬영</div>
+              <div className={styles.modeSub}>AI가 자동으로 약 정보를 인식해요</div>
+            </div>
+            <span className={styles.modeArrow}>→</span>
+          </div>
+
+          {/* 직접 입력 선택 */}
+          <div className={styles.modeCard} onClick={() => setInputMode('manual')}>
+            <div className={styles.modeIcon}>✏️</div>
+            <div className={styles.modeInfo}>
+              <div className={styles.modeTitle}>약 이름 직접 입력</div>
+              <div className={styles.modeSub}>약 이름을 직접 타이핑해서 등록해요</div>
+            </div>
+            <span className={styles.modeArrow}>→</span>
+          </div>
+
+          <div className={styles.disclaimer}>
+            ⚕️ 본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.
+          </div>
+        </div>
+      )}
+
+      {/* Step 1: 사진 촬영 모드 */}
+      {step === 1 && inputMode === 'photo' && (
         <div className={styles.content}>
           <div className={styles.photoGuide}>
             <div className={styles.photoGuideIcon}>📋</div>
             <div className={styles.photoGuideTitle}>처방전 또는 약봉투를 촬영해주세요</div>
-            <div className={styles.photoGuideDesc}>
-              AI가 자동으로 약 정보를 인식합니다
-            </div>
+            <div className={styles.photoGuideDesc}>AI가 자동으로 약 정보를 인식합니다</div>
           </div>
 
-          {/* 사진 미리보기 */}
           {photoPreview ? (
             <div className={styles.previewWrap}>
               <img src={photoPreview} alt="촬영된 사진" className={styles.preview} />
@@ -137,6 +223,38 @@ export default function MedicineAddPage() {
             <div className={styles.tipItem}>• 밝은 곳에서 촬영하면 인식률이 높아요</div>
             <div className={styles.tipItem}>• 약봉투의 약 이름 부분을 선명하게 찍어주세요</div>
           </div>
+        </div>
+      )}
+
+      {/* Step 1: 직접 입력 모드 */}
+      {step === 1 && inputMode === 'manual' && (
+        <div className={styles.content}>
+          <div className={styles.photoGuide}>
+            <div className={styles.photoGuideIcon}>✏️</div>
+            <div className={styles.photoGuideTitle}>약 이름을 입력해주세요</div>
+            <div className={styles.photoGuideDesc}>복용 중인 약의 이름을 직접 입력하세요</div>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label className={styles.label}>약 이름</label>
+            <input
+              className={styles.searchInput}
+              type="text"
+              placeholder="예: 타이레놀, 아스피린..."
+              value={manualName}
+              onChange={e => setManualName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleManualNext()}
+              autoFocus
+            />
+          </div>
+
+          <button
+            className={styles.saveBtn}
+            onClick={handleManualNext}
+            disabled={!manualName.trim()}
+          >
+            다음 →
+          </button>
 
           <div className={styles.disclaimer}>
             ⚕️ 본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.
@@ -185,8 +303,16 @@ export default function MedicineAddPage() {
           </div>
 
           <div className={styles.btnGroup}>
-            <button className={styles.skipBtn} onClick={handleSave}>저장 (처방전 생략)</button>
-            <button className={styles.saveBtn} onClick={() => setStep(3)}>다음 → 처방전 등록</button>
+            <button
+              className={styles.skipBtn}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? '저장 중...' : '저장 (처방전 생략)'}
+            </button>
+            <button className={styles.saveBtn} onClick={() => setStep(3)}>
+              다음 → 처방전 등록
+            </button>
           </div>
         </div>
       )}
@@ -255,7 +381,13 @@ export default function MedicineAddPage() {
             ⚕️ 본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.
           </div>
 
-          <button className={styles.saveBtn} onClick={handleSave}>등록 완료</button>
+          <button
+            className={styles.saveBtn}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? '저장 중...' : '등록 완료'}
+          </button>
         </div>
       )}
     </div>

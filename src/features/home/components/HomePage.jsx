@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BottomTab from '../../../components/common/BottomTab'
 import styles from './HomePage.module.css'
@@ -14,6 +14,18 @@ export default function HomePage() {
   const [warnings] = useState([
     { id: 1, msg: '타이레놀과 아스피린 상호작용 주의' }
   ])
+  // 미확인 알림 상태
+  const [hasUnread, setHasUnread] = useState(false)
+
+  // 페이지 포커스될 때마다 unreadAlarm 체크
+  useEffect(() => {
+    const checkUnread = () => {
+      setHasUnread(localStorage.getItem('unreadAlarm') === 'true')
+    }
+    checkUnread()
+    window.addEventListener('focus', checkUnread)
+    return () => window.removeEventListener('focus', checkUnread)
+  }, [])
 
   const doneCnt = todayMeds.filter(m => m.done).length
   const totalCnt = todayMeds.length
@@ -21,6 +33,13 @@ export default function HomePage() {
   const toggleDone = (id) => setTodayMeds(prev => prev.map(m => m.id === id ? { ...m, done: !m.done } : m))
   const now = new Date()
   const nextMed = todayMeds.find(m => !m.done)
+
+  // 알림 버튼 클릭: 읽음 처리 후 이동
+  const handleAlarmClick = () => {
+    localStorage.setItem('unreadAlarm', 'false')
+    setHasUnread(false)
+    navigate('/alarm')
+  }
 
   return (
     <div className={styles.container}>
@@ -36,9 +55,9 @@ export default function HomePage() {
             {now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
           </div>
         </div>
-        <button className={styles.alarmBtn} onClick={() => navigate('/alarm')}>
+        <button className={styles.alarmBtn} onClick={handleAlarmClick}>
           🔔
-          {warnings.length > 0 && <span className={styles.alarmDot} />}
+          {hasUnread && <span className={styles.alarmDot} />}
         </button>
       </header>
 

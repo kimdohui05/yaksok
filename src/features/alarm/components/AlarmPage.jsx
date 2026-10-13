@@ -15,7 +15,6 @@ const DUMMY_ALARMS = [
   { id: 3, medicine: '타이레놀 & 아스피린', time: '어제 오후 3:00', read: true, type: 'warning', msg: '상호작용 주의 - 출혈 위험 증가' },
 ]
 
-// 브라우저 알림 권한 요청
 const requestPermission = async () => {
   if (!('Notification' in window)) return false
   if (Notification.permission === 'granted') return true
@@ -23,14 +22,9 @@ const requestPermission = async () => {
   return result === 'granted'
 }
 
-// 브라우저 알림 발송
 const sendNotification = (title, body) => {
   if (Notification.permission !== 'granted') return
-  new Notification(title, {
-    body,
-    icon: '💊',
-    badge: '💊',
-  })
+  new Notification(title, { body, icon: '💊', badge: '💊' })
 }
 
 export default function AlarmPage() {
@@ -40,6 +34,11 @@ export default function AlarmPage() {
     localStorage.getItem('alarmEnabled') !== 'false'
   )
   const unreadCnt = alarms.filter(a => !a.read).length
+
+  // 알림 페이지 들어오면 즉시 unreadAlarm 읽음 처리
+  useEffect(() => {
+    localStorage.setItem('unreadAlarm', 'false')
+  }, [])
 
   // 알림 권한 요청
   useEffect(() => {
@@ -62,11 +61,7 @@ export default function AlarmPage() {
 
       MED_SCHEDULE.forEach(med => {
         if (med.time === currentTime) {
-          sendNotification(
-            '💊 복약 시간이에요!',
-            `${med.medicine} 복용할 시간입니다.`
-          )
-          // 알림 목록에 추가
+          sendNotification('💊 복약 시간이에요!', `${med.medicine} 복용할 시간입니다.`)
           setAlarms(prev => [{
             id: Date.now(),
             medicine: med.medicine,
@@ -74,18 +69,23 @@ export default function AlarmPage() {
             read: false,
             type: 'reminder',
           }, ...prev])
+          localStorage.setItem('unreadAlarm', 'true')
         }
       })
     }
 
-    // 즉시 한 번 체크
     checkAlarm()
-    // 1분마다 체크
     const interval = setInterval(checkAlarm, 60000)
     return () => clearInterval(interval)
   }, [alarmEnabled, permission])
 
   const markRead = (id) => setAlarms(prev => prev.map(a => a.id === id ? { ...a, read: true } : a))
+
+  // 모두 읽음 처리
+  const markAllRead = () => {
+    setAlarms(prev => prev.map(a => ({ ...a, read: true })))
+    localStorage.setItem('unreadAlarm', 'false')
+  }
 
   const toggleAlarm = async () => {
     if (!alarmEnabled) {
@@ -105,7 +105,11 @@ export default function AlarmPage() {
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>알림</h1>
-        {unreadCnt > 0 && <span className={styles.badge}>{unreadCnt}개 미확인</span>}
+        {unreadCnt > 0 && (
+          <button className={styles.readAllBtn} onClick={markAllRead}>
+            모두 읽음
+          </button>
+        )}
       </header>
 
       {/* 알림 설정 */}
