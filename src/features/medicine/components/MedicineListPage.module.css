@@ -91,6 +91,29 @@
 .name { font-size: 15px; font-weight: 700; color: var(--text); }
 .ingredient { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
 
+/* 처방일수 뱃지 */
+.prescBadge {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #EDF6F9;
+  border: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.prescWarning {
+  background: #FEF7E0;
+  border-color: #F5BC3D;
+  color: #C98A1A;
+}
+
+.prescExpired {
+  background: #FEECEC;
+  border-color: #FFCDD2;
+  color: var(--danger);
+}
+
 .cardActions {
   display: flex;
   gap: 8px;
@@ -227,6 +250,14 @@
   line-height: 1.75;
 }
 
+/* 품목정보 섹션 */
+.infoCompany { font-size: 11px; color: var(--text-sub); margin-bottom: 8px; }
+.infoSection { margin-bottom: 12px; }
+.infoSection:last-child { margin-bottom: 0; }
+.infoLabel { font-size: 12px; font-weight: 700; color: #4285F4; margin-bottom: 4px; }
+
+.modal { max-height: 85vh; overflow-y: auto; }
+
 .modalDisclaimer {
   font-size: 11px;
   color: var(--text-sub);
@@ -235,3 +266,32 @@
   border-radius: 8px;
   text-align: center;
 }
+
+/* 수정 버튼 / 수정 모달 */
+.editBtn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #EDF6F9;
+  border: 1px solid var(--border);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.13s;
+}
+.editBtn:hover { background: #E0F7FB; }
+
+.editField { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-sub); }
+.editField input {
+  padding: 12px; border-radius: 10px; border: 1.5px solid var(--border);
+  font-size: 14px; font-family: inherit; color: var(--text); background: #fff;
+}
+.editField input:focus { outline: none; border-color: var(--primary); }
+
+.saveBtn {
+  padding: 14px; border-radius: 12px; border: none;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.saveBtn:disabled { opacity: 0.6; cursor: not-allowed; }

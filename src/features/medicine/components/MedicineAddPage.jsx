@@ -31,7 +31,6 @@ export default function MedicineAddPage() {
   const [prescriptionDate, setPrescriptionDate] = useState(
     new Date().toISOString().split('T')[0]
   )
-  const [nextVisit, setNextVisit] = useState(null)
 
   // ── 사진 촬영 ──
   const handlePhotoClick = () => fileInputRef.current?.click()
@@ -85,18 +84,6 @@ export default function MedicineAddPage() {
   const removeTime = (i) => setTimes(times.filter((_, idx) => idx !== i))
   const updateTime = (i, val) => setTimes(times.map((t, idx) => idx === i ? val : t))
 
-  // ── 처방전 계산 ──
-  const calcNextVisit = () => {
-    if (!prescriptionDays || !prescriptionDate) return
-    const start = new Date(prescriptionDate)
-    start.setDate(start.getDate() + Number(prescriptionDays) - 2)
-    const formatted = start.toLocaleDateString('ko-KR', {
-      year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
-    })
-    setNextVisit(formatted)
-    localStorage.setItem('nextVisit', formatted)
-  }
-
   // ── 저장 (백엔드 연동) ──
   const handleSave = async () => {
     if (!selectedMed) return
@@ -107,11 +94,22 @@ export default function MedicineAddPage() {
     }
     setSaving(true)
     try {
+      const ids = []
       for (const t of validTimes) {
-        await client.post('/medications', {
+        const res = await client.post('/medications', {
           medicineName: selectedMed.name,
           alarmTime: t + ':00',
         })
+        // 백엔드가 저장된 id를 반환하면 수집
+        if (res.data?.id) ids.push(res.data.id)
+      }
+      // 처방 시작일을 localStorage에 저장 (약 id별로)
+      if (ids.length > 0 && prescriptionDate) {
+        try {
+          const existing = JSON.parse(localStorage.getItem('medStartDates') || '{}')
+          ids.forEach(id => { existing[String(id)] = prescriptionDate })
+          localStorage.setItem('medStartDates', JSON.stringify(existing))
+        } catch {}
       }
       alert('약이 등록되었습니다!')
       navigate('/medicine')
@@ -324,15 +322,8 @@ export default function MedicineAddPage() {
           </div>
 
           <div className={styles.btnGroup}>
-            <button
-              className={styles.skipBtn}
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? '저장 중...' : '저장 (처방전 생략)'}
-            </button>
             <button className={styles.saveBtn} onClick={() => setStep(3)}>
-              다음 → 처방전 등록
+              다음
             </button>
           </div>
         </div>
@@ -343,7 +334,7 @@ export default function MedicineAddPage() {
         <div className={styles.content}>
           <div className={styles.prescCard}>
             <div className={styles.prescCardTitle}>📋 처방전 정보 등록</div>
-            <div className={styles.prescCardDesc}>처방일수를 입력하면 다음 약국 방문일을 알려드려요</div>
+            <div className={styles.prescCardDesc}>처방 시작일과 처방일수를 입력해주세요</div>
           </div>
 
           <div className={styles.formGroup}>
@@ -378,25 +369,6 @@ export default function MedicineAddPage() {
               style={{ marginTop: '8px' }}
             />
           </div>
-
-          <button className={styles.calcBtn} onClick={calcNextVisit} disabled={!prescriptionDays}>
-            📅 다음 방문일 계산하기
-          </button>
-
-          {nextVisit && (
-            <div className={styles.nextVisitCard}>
-              <div className={styles.nextVisitTitle}>🏥 다음 약국 방문 권장일</div>
-              <div className={styles.nextVisitDate}>{nextVisit}</div>
-              <div className={styles.nextVisitDesc}>
-                약이 떨어지기 2일 전에 방문하시면 공백 없이 복용할 수 있어요
-              </div>
-              {Number(prescriptionDays) <= 3 && (
-                <div className={styles.newPrescAlert}>
-                  ⚠️ 처방일수가 짧습니다. 새로운 처방이 필요할 수 있어요.
-                </div>
-              )}
-            </div>
-          )}
 
           <div className={styles.disclaimer}>
             ⚕️ 본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.

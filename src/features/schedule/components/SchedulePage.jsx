@@ -66,10 +66,32 @@ export default function SchedulePage() {
     setDoneSet(loadDoneSet(selectedDate))
   }, [selectedDate])
 
-  // 약 데이터를 시간대별로 그룹핑
+  // localStorage에서 약별 처방 시작일 불러오기
+  const getStartDates = () => {
+    try {
+      return JSON.parse(localStorage.getItem('medStartDates') || '{}')
+    } catch { return {} }
+  }
+
+  // 선택 날짜를 "YYYY-MM-DD" 문자열로 변환
+  const toDateStr = (date) => {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
+  // 약 데이터를 시간대별로 그룹핑 (처방 시작일 이후 약만 표시)
   const buildSchedule = () => {
     const map = {}
+    const startDates = getStartDates()
+    const selectedStr = toDateStr(selectedDate)
+
     medicines.forEach(med => {
+      // 처방 시작일이 있으면 그 날짜 이후인지 확인
+      const startDate = startDates[String(med.id)]
+      if (startDate && selectedStr < startDate) return
+
       const timeKey = formatTime(med.alarmTime)
       if (!timeKey) return
       if (!map[timeKey]) map[timeKey] = []

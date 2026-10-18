@@ -64,9 +64,14 @@
 
 .infoRow {
   display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
 }
 .infoLabel { font-size: 13px; color: var(--text); font-weight: 500; }
-.infoValue { font-size: 13px; font-weight: 700; color: var(--primary); }
+.infoValue { font-size: 13px; font-weight: 700; color: var(--primary); text-align: right; }
+
+/* 처방일수 상태 색상 */
+.prescWarning { color: #C98A1A; }
+.prescExpired { color: var(--danger); }
 
 .linkBtn {
   background: none; border: none; padding: 0;

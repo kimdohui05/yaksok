@@ -4,6 +4,27 @@ import BottomTab from '../../../components/common/BottomTab'
 import client from '../../../api/client'
 import styles from './MyPage.module.css'
 
+// localStorage에서 처방 정보 불러오기
+const getPrescInfo = () => {
+  try {
+    const startDates = JSON.parse(localStorage.getItem('medStartDates') || '{}')
+    const prescDays = JSON.parse(localStorage.getItem('medPrescDays') || '{}')
+    const byName = JSON.parse(localStorage.getItem('medPrescByName') || '{}')
+    return { startDates, prescDays, byName }
+  } catch { return { startDates: {}, prescDays: {}, byName: {} } }
+}
+
+// 처방 시작일 + 처방일수로 남은 일수 계산
+const calcRemaining = (startDate, days) => {
+  if (!startDate || !days) return null
+  const start = new Date(startDate)
+  const end = new Date(start)
+  end.setDate(end.getDate() + Number(days) - 1)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.ceil((end - today) / (1000 * 60 * 60 * 24))
+}
+
 export default function MyPage() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
@@ -14,7 +35,7 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true)
 
   const nickname = localStorage.getItem('nickname') || '사용자'
-  const nextVisit = localStorage.getItem('nextVisit') || null
+  const prescInfo = getPrescInfo()
 
   const medCount = medicines.length
   const warningCount = 0 // 백엔드 미지원
@@ -61,6 +82,39 @@ export default function MyPage() {
       return `${String(alarmTime[0]).padStart(2,'0')}:${String(alarmTime[1]).padStart(2,'0')}`
     return String(alarmTime).substring(0, 5)
   }
+
+  // 처방일수 텍스트 (예: "7일분 · 잔여 3일")
+  const prescText = (med) => {
+    const key = String(med.id)
+    // id 기준 → 없으면 약 이름 기준으로 조회
+    const byName = prescInfo.byName[med.medicineName] || {}
+    const days = prescInfo.prescDays[key] || byName.days
+    if (!days) return null
+    const startDate = prescInfo.startDates[key] || byName.startDate
+    const remaining = calcRemaining(startDate, days)
+    if (remaining === null) return { text: `${days}일분`, level: 'normal' }
+    if (remaining < 0) return { text: `${days}일분 · 만료`, level: 'expired' }
+    if (remaining <= 3) return { text: `${days}일분 · 잔여 ${remaining}일 ⚠️`, level: 'warning' }
+    return { text: `${days}일분 · 잔여 ${remaining}일`, level: 'normal' }
+  }
+
+  const levelClass = (level) =>
+    level === 'expired' ? styles.prescExpired
+      : level === 'warning' ? styles.prescWarning : ''
+
+  // 같은 약을 여러 시간대로 등록한 경우 약 이름 기준 한 번만 표시
+  const prescList = (() => {
+    const seen = new Set()
+    const list = []
+    medicines.forEach(m => {
+      if (seen.has(m.medicineName)) return
+      const info = prescText(m)
+      if (!info) return
+      seen.add(m.medicineName)
+      list.push({ id: m.id, name: m.medicineName, ...info })
+    })
+    return list
+  })()
 
   return (
     <div className={styles.container}>
@@ -113,7 +167,10 @@ export default function MyPage() {
             {medicines.slice(0, 3).map(m => (
               <div key={m.id} className={styles.infoRow}>
                 <span className={styles.infoLabel}>💊 {m.medicineName}</span>
-                <span className={styles.infoValue}>{formatTime(m.alarmTime)}</span>
+                <span className={styles.infoValue}>
+                  {formatTime(m.alarmTime)}
+                  {prescText(m) && ` · ${prescText(m).text}`}
+                </span>
               </div>
             ))}
             {medCount > 3 && (
@@ -134,10 +191,19 @@ export default function MyPage() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>처방전 정보</div>
         <div className={styles.infoCard}>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>🏥 다음 약국 방문 예정일</span>
-            <span className={styles.infoValue}>{nextVisit || '미등록'}</span>
-          </div>
+          {prescList.length === 0 ? (
+            <div className={styles.infoRow}>
+              <span className={styles.infoLabel}>📋 등록된 처방 정보</span>
+              <span className={styles.infoValue}>미등록</span>
+            </div>
+          ) : (
+            prescList.map(p => (
+              <div key={p.id} className={styles.infoRow}>
+                <span className={styles.infoLabel}>💊 {p.name}</span>
+                <span className={`${styles.infoValue} ${levelClass(p.level)}`}>{p.text}</span>
+              </div>
+            ))
+          )}
           <button className={styles.linkBtn} onClick={() => navigate('/medicine/add')}>
             처방전 등록하기 →
           </button>
