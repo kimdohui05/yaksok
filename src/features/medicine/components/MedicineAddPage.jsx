@@ -23,6 +23,8 @@ export default function MedicineAddPage() {
 
   // 직접 입력 모드
   const [manualName, setManualName] = useState('')
+  const [checking, setChecking] = useState(false)
+  const [notFound, setNotFound] = useState(false)
 
   // 처방전 상태
   const [prescriptionDays, setPrescriptionDays] = useState('')
@@ -55,10 +57,27 @@ export default function MedicineAddPage() {
   }
 
   // ── 직접 입력 ──
-  const handleManualNext = () => {
+  const handleManualNext = async () => {
     if (!manualName.trim()) return
-    setSelectedMed({ name: manualName.trim(), ingredient: '직접 입력' })
-    setStep(2)
+    setNotFound(false)
+    setChecking(true)
+    try {
+      const res = await client.get('/api/dur/check', {
+        params: { itemName: manualName.trim() }
+      })
+      if (res.data.length === 0) {
+        setNotFound(true)
+        return
+      }
+      setSelectedMed({ name: manualName.trim(), ingredient: '직접 입력' })
+      setStep(2)
+    } catch (err) {
+      // API 오류 시 그냥 통과 (DUR 서버 문제일 수 있음)
+      setSelectedMed({ name: manualName.trim(), ingredient: '직접 입력' })
+      setStep(2)
+    } finally {
+      setChecking(false)
+    }
   }
 
   // ── 복용 시간 ──
@@ -88,11 +107,10 @@ export default function MedicineAddPage() {
     }
     setSaving(true)
     try {
-      // 첫 번째 시간만 등록 (복수 시간은 여러 번 호출)
       for (const t of validTimes) {
         await client.post('/medications', {
           medicineName: selectedMed.name,
-          alarmTime: t + ':00', // "HH:mm:ss" 형식
+          alarmTime: t + ':00',
         })
       }
       alert('약이 등록되었습니다!')
@@ -146,7 +164,6 @@ export default function MedicineAddPage() {
             <div className={styles.photoGuideDesc}>사진 촬영 또는 직접 입력 중 선택하세요</div>
           </div>
 
-          {/* 사진 촬영 선택 */}
           <div className={styles.modeCard} onClick={() => setInputMode('photo')}>
             <div className={styles.modeIcon}>📷</div>
             <div className={styles.modeInfo}>
@@ -156,7 +173,6 @@ export default function MedicineAddPage() {
             <span className={styles.modeArrow}>→</span>
           </div>
 
-          {/* 직접 입력 선택 */}
           <div className={styles.modeCard} onClick={() => setInputMode('manual')}>
             <div className={styles.modeIcon}>✏️</div>
             <div className={styles.modeInfo}>
@@ -238,22 +254,27 @@ export default function MedicineAddPage() {
           <div className={styles.formGroup}>
             <label className={styles.label}>약 이름</label>
             <input
-              className={styles.searchInput}
+              className={`${styles.searchInput} ${notFound ? styles.inputError : ''}`}
               type="text"
               placeholder="예: 타이레놀, 아스피린..."
               value={manualName}
-              onChange={e => setManualName(e.target.value)}
+              onChange={e => { setManualName(e.target.value); setNotFound(false) }}
               onKeyDown={e => e.key === 'Enter' && handleManualNext()}
               autoFocus
             />
+            {notFound && (
+              <div className={styles.notFoundMsg}>
+                ⚠️ 약이 존재하지 않습니다. 약 이름을 다시 확인해주세요.
+              </div>
+            )}
           </div>
 
           <button
             className={styles.saveBtn}
             onClick={handleManualNext}
-            disabled={!manualName.trim()}
+            disabled={!manualName.trim() || checking}
           >
-            다음 →
+            {checking ? '확인 중...' : '다음 →'}
           </button>
 
           <div className={styles.disclaimer}>
@@ -263,7 +284,7 @@ export default function MedicineAddPage() {
       )}
 
       {/* Step 2: 복용 설정 */}
-      {step === 2 && selectedMed && (
+      {step === 2 && (
         <div className={styles.content}>
           <div className={styles.selectedCard}>
             <span className={styles.selectedCardIcon}>💊</span>

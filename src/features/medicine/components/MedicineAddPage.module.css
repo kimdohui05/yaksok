@@ -116,6 +116,22 @@
 }
 .searchInput:focus { border-color: var(--primary); }
 
+/* 에러 상태 인풋 */
+.inputError {
+  border-color: var(--danger) !important;
+}
+
+/* 약 없음 에러 메시지 */
+.notFoundMsg {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #FEECEC;
+  border: 1px solid #FFCDD2;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .searchBtn {
   padding: 13px 20px;
   border-radius: 12px;
@@ -180,12 +196,22 @@
 }
 .addTimeBtn:hover { border-color: var(--primary); color: var(--primary); }
 
-.btnGroup { display: flex; gap: 10px; }
+.btnGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .skipBtn {
-  flex: 1; padding: 13px;
-  border-radius: 12px; border: 1.5px solid var(--border);
-  background: #fff; font-size: 13px; font-weight: 600;
-  color: var(--text-sub); cursor: pointer; font-family: inherit;
+  width: 100%;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-family: inherit;
 }
 
 /* 처방전 */
@@ -246,6 +272,7 @@
   font-size: 15px; font-weight: 700; cursor: pointer;
   font-family: inherit; box-shadow: 0 4px 16px rgba(59,191,212,0.35);
 }
+.saveBtn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* 사진 촬영 */
 .photoGuide {
@@ -307,24 +334,28 @@
 .tipTitle { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
 .tipItem { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
 
-/* 등록 방법 선택 카드 */
+/* 모드 선택 카드 */
 .modeCard {
   display: flex;
   align-items: center;
   gap: 14px;
+  padding: 18px 20px;
+  border-radius: 16px;
   background: #fff;
   border: 1.5px solid var(--border);
-  border-radius: 16px;
-  padding: 18px 16px;
   cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
   transition: all 0.13s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 .modeCard:hover {
   border-color: var(--primary);
-  background: #F0FBFD;
+  box-shadow: 0 4px 16px rgba(59,191,212,0.15);
 }
-.modeIcon { font-size: 28px; flex-shrink: 0; }
+.modeIcon { font-size: 32px; flex-shrink: 0; }
 .modeInfo { flex: 1; }
 .modeTitle { font-size: 15px; font-weight: 700; color: var(--text); }
 .modeSub { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
-.modeArrow { font-size: 18px; color: var(--text-sub); }
+.modeArrow { font-size: 20px; color: var(--text-sub); }
