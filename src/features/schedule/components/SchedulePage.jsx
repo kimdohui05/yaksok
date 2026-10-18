@@ -66,11 +66,15 @@ export default function SchedulePage() {
     setDoneSet(loadDoneSet(selectedDate))
   }, [selectedDate])
 
-  // localStorage에서 약별 처방 시작일 불러오기
-  const getStartDates = () => {
+  // localStorage에서 약별 처방 정보(시작일/처방일수) 불러오기
+  const getPrescInfo = () => {
     try {
-      return JSON.parse(localStorage.getItem('medStartDates') || '{}')
-    } catch { return {} }
+      return {
+        startDates: JSON.parse(localStorage.getItem('medStartDates') || '{}'),
+        prescDays: JSON.parse(localStorage.getItem('medPrescDays') || '{}'),
+        byName: JSON.parse(localStorage.getItem('medPrescByName') || '{}'),
+      }
+    } catch { return { startDates: {}, prescDays: {}, byName: {} } }
   }
 
   // 선택 날짜를 "YYYY-MM-DD" 문자열로 변환
@@ -81,21 +85,46 @@ export default function SchedulePage() {
     return `${y}-${m}-${d}`
   }
 
-  // 약 데이터를 시간대별로 그룹핑 (처방 시작일 이후 약만 표시)
+  // 처방 시작일 + 처방일수 → 마지막 복용일("YYYY-MM-DD") 계산 (시작일 포함)
+  const calcEndStr = (startStr, days) => {
+    const [y, m, d] = startStr.split('-').map(Number)
+    const end = new Date(y, m - 1, d + Number(days) - 1)
+    return toDateStr(end)
+  }
+
+  // 처방일수 / 오늘 기준 잔여일수 라벨 (예: "7일분 · 잔여 3일")
+  const getPrescLabel = (startDate, days) => {
+    if (!days) return null
+    if (!startDate) return { text: `${days}일분`, level: 'normal' }
+    const remaining = Math.ceil(
+      (new Date(calcEndStr(startDate, days)) - new Date(toDateStr(new Date()))) / (1000 * 60 * 60 * 24)
+    )
+    if (remaining < 0) return { text: `${days}일분 · 만료`, level: 'expired' }
+    if (remaining <= 3) return { text: `${days}일분 · 잔여 ${remaining}일 ⚠️`, level: 'warning' }
+    return { text: `${days}일분 · 잔여 ${remaining}일`, level: 'normal' }
+  }
+
+  // 약 데이터를 시간대별로 그룹핑 (처방 시작일 ~ 처방 종료일 사이의 날짜에만 표시)
   const buildSchedule = () => {
     const map = {}
-    const startDates = getStartDates()
+    const { startDates, prescDays, byName } = getPrescInfo()
     const selectedStr = toDateStr(selectedDate)
 
     medicines.forEach(med => {
-      // 처방 시작일이 있으면 그 날짜 이후인지 확인
-      const startDate = startDates[String(med.id)]
+      // id 기준 → 없으면 약 이름 기준으로 처방 정보 조회
+      const nameInfo = byName[med.medicineName] || {}
+      const startDate = startDates[String(med.id)] || nameInfo.startDate
+      const days = prescDays[String(med.id)] || nameInfo.days
+
+      // 시작일 이전 날짜에는 표시하지 않음
       if (startDate && selectedStr < startDate) return
+      // 처방일수가 있으면 마지막 복용일 이후 날짜에도 표시하지 않음
+      if (startDate && days && selectedStr > calcEndStr(startDate, days)) return
 
       const timeKey = formatTime(med.alarmTime)
       if (!timeKey) return
       if (!map[timeKey]) map[timeKey] = []
-      map[timeKey].push({ id: med.id, name: med.medicineName })
+      map[timeKey].push({ id: med.id, name: med.medicineName, presc: getPrescLabel(startDate, days) })
     })
     // 시간 순 정렬
     return Object.fromEntries(
@@ -219,7 +248,18 @@ export default function SchedulePage() {
                       <div className={`${styles.check} ${done ? styles.checked : ''}`}>
                         {done && '✓'}
                       </div>
-                      <span className={styles.medName}>{m.name}</span>
+                      <span className={styles.medName}>
+                        {m.name}
+                        {m.presc && (
+                          <span style={{
+                            display: 'block', marginTop: 2, fontSize: 11, fontWeight: 600,
+                            color: m.presc.level === 'expired' ? 'var(--danger)'
+                              : m.presc.level === 'warning' ? '#C98A1A' : 'var(--text-sub)',
+                          }}>
+                            📋 {m.presc.text}
+                          </span>
+                        )}
+                      </span>
                       {done
                         ? <span className={styles.doneTag}>완료</span>
                         : <span className={styles.pendingTag}>대기</span>
