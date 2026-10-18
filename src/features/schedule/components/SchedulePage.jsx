@@ -1,13 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import client from '../../../api/client'
 import BottomTab from '../../../components/common/BottomTab'
 import styles from './SchedulePage.module.css'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-const SCHEDULE = {
-  '08:00': [{ name: '타이레놀', done: true }],
-  '12:00': [{ name: '아스피린', done: false }, { name: '타이레놀', done: false }],
-  '18:00': [{ name: '오메가3', done: false }],
+// Jackson이 LocalTime을 배열 [H, m, s] 또는 문자열 "HH:mm:ss"로 직렬화할 수 있음
+const formatTime = (alarmTime) => {
+  if (!alarmTime) return null
+  if (Array.isArray(alarmTime)) {
+    const [h, m] = alarmTime
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
+  // "HH:mm:ss" → "HH:mm"
+  return String(alarmTime).slice(0, 5)
+}
+
+// 복약 완료 여부: localStorage의 doneMeds 키 사용
+const getDoneKey = (date) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `doneMeds_${y}-${m}-${d}`
+}
+
+const loadDoneSet = (date) => {
+  try {
+    const raw = localStorage.getItem(getDoneKey(date))
+    return raw ? new Set(JSON.parse(raw)) : new Set()
+  } catch { return new Set() }
+}
+
+const saveDoneSet = (date, set) => {
+  try {
+    localStorage.setItem(getDoneKey(date), JSON.stringify([...set]))
+  } catch {}
 }
 
 export default function SchedulePage() {
@@ -18,6 +45,53 @@ export default function SchedulePage() {
   const [showYearMonth, setShowYearMonth] = useState(false)
   const [tempYear, setTempYear] = useState(today.getFullYear())
   const [tempMonth, setTempMonth] = useState(today.getMonth())
+
+  // 실제 약 데이터
+  const [medicines, setMedicines] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // 복약 완료 상태 (날짜별 로컬스토리지)
+  const [doneSet, setDoneSet] = useState(() => loadDoneSet(today))
+
+  // API에서 약 목록 불러오기
+  useEffect(() => {
+    client.get('/medications')
+      .then(res => setMedicines(res.data || []))
+      .catch(() => setMedicines([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // 선택 날짜 변경 시 완료 상태 업데이트
+  useEffect(() => {
+    setDoneSet(loadDoneSet(selectedDate))
+  }, [selectedDate])
+
+  // 약 데이터를 시간대별로 그룹핑
+  const buildSchedule = () => {
+    const map = {}
+    medicines.forEach(med => {
+      const timeKey = formatTime(med.alarmTime)
+      if (!timeKey) return
+      if (!map[timeKey]) map[timeKey] = []
+      map[timeKey].push({ id: med.id, name: med.medicineName })
+    })
+    // 시간 순 정렬
+    return Object.fromEntries(
+      Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
+    )
+  }
+
+  const schedule = buildSchedule()
+
+  // 복약 완료 토글
+  const toggleDone = (medId) => {
+    const key = String(medId)
+    const next = new Set(doneSet)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    setDoneSet(next)
+    saveDoneSet(selectedDate, next)
+  }
 
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(selectedDate)
@@ -52,6 +126,7 @@ export default function SchedulePage() {
   }
 
   const calendarDates = getCalendarDates()
+  const hasSchedule = Object.keys(schedule).length > 0
 
   return (
     <div className={styles.container}>
@@ -98,25 +173,42 @@ export default function SchedulePage() {
 
       {/* 시간대별 일정 */}
       <div className={styles.scheduleList}>
-        {Object.entries(SCHEDULE).map(([time, meds]) => (
-          <div key={time} className={styles.timeBlock}>
-            <div className={styles.timeLabel}>{time}</div>
-            <div className={styles.medList}>
-              {meds.map((m, i) => (
-                <div key={i} className={`${styles.medItem} ${m.done ? styles.done : ''}`}>
-                  <div className={`${styles.check} ${m.done ? styles.checked : ''}`}>
-                    {m.done && '✓'}
-                  </div>
-                  <span className={styles.medName}>{m.name}</span>
-                  {m.done
-                    ? <span className={styles.doneTag}>완료</span>
-                    : <span className={styles.pendingTag}>대기</span>
-                  }
-                </div>
-              ))}
-            </div>
+        {loading ? (
+          <div className={styles.emptyMsg}>불러오는 중...</div>
+        ) : !hasSchedule ? (
+          <div className={styles.emptyMsg}>
+            <div className={styles.emptyIcon}>💊</div>
+            <div>등록된 약이 없어요</div>
+            <div className={styles.emptyDesc}>약 탭에서 복용 중인 약을 추가해보세요</div>
           </div>
-        ))}
+        ) : (
+          Object.entries(schedule).map(([time, meds]) => (
+            <div key={time} className={styles.timeBlock}>
+              <div className={styles.timeLabel}>{time}</div>
+              <div className={styles.medList}>
+                {meds.map((m) => {
+                  const done = doneSet.has(String(m.id))
+                  return (
+                    <div
+                      key={m.id}
+                      className={`${styles.medItem} ${done ? styles.done : ''}`}
+                      onClick={() => toggleDone(m.id)}
+                    >
+                      <div className={`${styles.check} ${done ? styles.checked : ''}`}>
+                        {done && '✓'}
+                      </div>
+                      <span className={styles.medName}>{m.name}</span>
+                      {done
+                        ? <span className={styles.doneTag}>완료</span>
+                        : <span className={styles.pendingTag}>대기</span>
+                      }
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className={styles.disclaimer}>
