@@ -1,5 +1,6 @@
 package com.bank.yaksok.api.dur.client;
 
+import com.bank.yaksok.api.dur.dto.DrugInfoResponse;
 import com.bank.yaksok.api.dur.dto.DurResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,24 @@ public class DurApiClient {
 
     @Value("${dur.base-url}")
     private String baseUrl;
+
+    @Value("${dur.info-url}")
+    private String infoUrl;
+
+    public DrugInfoResponse getDrugInfo(String itemName) {
+        String encodedItemName = URLEncoder.encode(itemName, StandardCharsets.UTF_8);
+
+        URI uri = UriComponentsBuilder.fromUriString(infoUrl)
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("pageNo", 1)
+                .queryParam("numOfRows", 10)
+                .queryParam("type", "json")
+                .queryParam("itemName", encodedItemName)
+                .build(true)
+                .toUri();
+
+        return restClient.get().uri(uri).retrieve().body(DrugInfoResponse.class);
+    }
 
     public DurResponse getUsjntTaboo(String itemName) {
         String encodedItemName = URLEncoder.encode(itemName, StandardCharsets.UTF_8);
