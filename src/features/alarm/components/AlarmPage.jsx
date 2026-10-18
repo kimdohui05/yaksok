@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react'
+import client from '../../../api/client'
 import BottomTab from '../../../components/common/BottomTab'
 import styles from './AlarmPage.module.css'
 
-// 복약 시간 목록 (추후 백엔드 연동)
-const MED_SCHEDULE = [
-  { id: 1, medicine: '타이레놀', time: '08:00' },
-  { id: 2, medicine: '아스피린', time: '12:00' },
-  { id: 3, medicine: '오메가3', time: '18:00' },
-]
-
-const DUMMY_ALARMS = [
-  { id: 1, medicine: '타이레놀', time: '오전 8:00', read: false, type: 'reminder' },
-  { id: 2, medicine: '아스피린', time: '오후 12:00', read: false, type: 'reminder' },
-  { id: 3, medicine: '타이레놀 & 아스피린', time: '어제 오후 3:00', read: true, type: 'warning', msg: '상호작용 주의 - 출혈 위험 증가' },
-]
+const formatTime = (alarmTime) => {
+  if (!alarmTime) return ''
+  if (Array.isArray(alarmTime)) {
+    const h = String(alarmTime[0]).padStart(2, '0')
+    const m = String(alarmTime[1]).padStart(2, '0')
+    return `${h}:${m}`
+  }
+  return String(alarmTime).substring(0, 5)
+}
 
 const requestPermission = async () => {
   if (!('Notification' in window)) return false
@@ -28,12 +26,26 @@ const sendNotification = (title, body) => {
 }
 
 export default function AlarmPage() {
-  const [alarms, setAlarms] = useState(DUMMY_ALARMS)
+  const [medSchedule, setMedSchedule] = useState([])
+  const [alarms, setAlarms] = useState([])
   const [permission, setPermission] = useState(Notification.permission)
   const [alarmEnabled, setAlarmEnabled] = useState(
     localStorage.getItem('alarmEnabled') !== 'false'
   )
   const unreadCnt = alarms.filter(a => !a.read).length
+
+  // 약 목록 API로 불러오기
+  useEffect(() => {
+    client.get('/medications')
+      .then(res => {
+        setMedSchedule(res.data.map(m => ({
+          id: m.id,
+          medicine: m.medicineName,
+          time: formatTime(m.alarmTime),
+        })))
+      })
+      .catch(err => console.error('약 목록 불러오기 실패', err))
+  }, [])
 
   // 알림 페이지 들어오면 즉시 unreadAlarm 읽음 처리
   useEffect(() => {
@@ -51,7 +63,7 @@ export default function AlarmPage() {
 
   // 복약 시간 체크 (1분마다)
   useEffect(() => {
-    if (!alarmEnabled || permission !== 'granted') return
+    if (!alarmEnabled || permission !== 'granted' || medSchedule.length === 0) return
 
     const checkAlarm = () => {
       const now = new Date()
@@ -59,7 +71,7 @@ export default function AlarmPage() {
       const mm = String(now.getMinutes()).padStart(2, '0')
       const currentTime = `${hh}:${mm}`
 
-      MED_SCHEDULE.forEach(med => {
+      medSchedule.forEach(med => {
         if (med.time === currentTime) {
           sendNotification('💊 복약 시간이에요!', `${med.medicine} 복용할 시간입니다.`)
           setAlarms(prev => [{
@@ -77,11 +89,10 @@ export default function AlarmPage() {
     checkAlarm()
     const interval = setInterval(checkAlarm, 60000)
     return () => clearInterval(interval)
-  }, [alarmEnabled, permission])
+  }, [alarmEnabled, permission, medSchedule])
 
   const markRead = (id) => setAlarms(prev => prev.map(a => a.id === id ? { ...a, read: true } : a))
 
-  // 모두 읽음 처리
   const markAllRead = () => {
     setAlarms(prev => prev.map(a => ({ ...a, read: true })))
     localStorage.setItem('unreadAlarm', 'false')
@@ -135,13 +146,19 @@ export default function AlarmPage() {
       {/* 복약 일정 */}
       <div className={styles.scheduleCard}>
         <div className={styles.scheduleTitle}>📅 오늘 복약 일정</div>
-        {MED_SCHEDULE.map(med => (
-          <div key={med.id} className={styles.scheduleItem}>
-            <span className={styles.scheduleIcon}>💊</span>
-            <span className={styles.scheduleMed}>{med.medicine}</span>
-            <span className={styles.scheduleTime}>{med.time}</span>
+        {medSchedule.length === 0 ? (
+          <div style={{ fontSize: '13px', color: 'var(--text-sub)', padding: '8px 0' }}>
+            등록된 약이 없어요
           </div>
-        ))}
+        ) : (
+          medSchedule.map(med => (
+            <div key={med.id} className={styles.scheduleItem}>
+              <span className={styles.scheduleIcon}>💊</span>
+              <span className={styles.scheduleMed}>{med.medicine}</span>
+              <span className={styles.scheduleTime}>{med.time}</span>
+            </div>
+          ))
+        )}
       </div>
 
       {/* 알림 목록 */}
