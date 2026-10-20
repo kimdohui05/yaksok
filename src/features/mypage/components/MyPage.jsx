@@ -94,7 +94,7 @@ export default function MyPage() {
     const remaining = calcRemaining(startDate, days)
     if (remaining === null) return { text: `${days}일분`, level: 'normal' }
     if (remaining < 0) return { text: `${days}일분 · 만료`, level: 'expired' }
-    if (remaining <= 3) return { text: `${days}일분 · 잔여 ${remaining}일 ⚠️`, level: 'warning' }
+    if (remaining <= 3) return { text: `${days}일분 · 잔여 ${remaining}일`, level: 'warning' }
     return { text: `${days}일분 · 잔여 ${remaining}일`, level: 'normal' }
   }
 
@@ -127,7 +127,6 @@ export default function MyPage() {
         <div className={styles.avatar}>{nickname.charAt(0).toUpperCase()}</div>
         <div className={styles.profileInfo}>
           <div className={styles.name}>{profile?.name || nickname}</div>
-          <div className={styles.email}>{profile?.email || '-'}</div>
         </div>
       </div>
 
@@ -141,17 +140,14 @@ export default function MyPage() {
         ) : (
           <div className={styles.statGrid}>
             <div className={styles.statItem}>
-              <div className={styles.statIcon}>💊</div>
               <div className={styles.statValue}>{medCount}개</div>
               <div className={styles.statLabel}>등록된 약</div>
             </div>
             <div className={styles.statItem}>
-              <div className={styles.statIcon}>📊</div>
               <div className={styles.statValue}>{pct}%</div>
               <div className={styles.statLabel}>오늘 완료율</div>
             </div>
             <div className={styles.statItem}>
-              <div className={styles.statIcon}>⚠️</div>
               <div className={styles.statValue}>{warningCount}건</div>
               <div className={styles.statLabel}>상호작용 경고</div>
             </div>
@@ -166,7 +162,7 @@ export default function MyPage() {
           <div className={styles.infoCard}>
             {medicines.slice(0, 3).map(m => (
               <div key={m.id} className={styles.infoRow}>
-                <span className={styles.infoLabel}>💊 {m.medicineName}</span>
+                <span className={styles.infoLabel}>{m.medicineName}</span>
                 <span className={styles.infoValue}>
                   {formatTime(m.alarmTime)}
                   {prescText(m) && ` · ${prescText(m).text}`}
@@ -193,13 +189,13 @@ export default function MyPage() {
         <div className={styles.infoCard}>
           {prescList.length === 0 ? (
             <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>📋 등록된 처방 정보</span>
+              <span className={styles.infoLabel}>등록된 처방 정보</span>
               <span className={styles.infoValue}>미등록</span>
             </div>
           ) : (
             prescList.map(p => (
               <div key={p.id} className={styles.infoRow}>
-                <span className={styles.infoLabel}>💊 {p.name}</span>
+                <span className={styles.infoLabel}>{p.name}</span>
                 <span className={`${styles.infoValue} ${levelClass(p.level)}`}>{p.text}</span>
               </div>
             ))
@@ -218,7 +214,7 @@ export default function MyPage() {
             <div>
               <div className={styles.settingLabel}>복약 알림</div>
               <div className={styles.settingDesc}>
-                {alarmOn ? '✅ 복약 시간마다 알림을 받고 있어요' : '🔕 알림이 꺼져 있어요'}
+                {alarmOn ? '복약 시간마다 알림을 받고 있어요' : '알림이 꺼져 있어요'}
               </div>
             </div>
             <div

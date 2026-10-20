@@ -66,10 +66,9 @@ export default function HomePage() {
       <header className={styles.header}>
         <div>
           <div className={styles.logoRow}>
-            <span className={styles.logo}>💊</span>
-            <span className={styles.logoText}>약속</span>
+            <span className={styles.logoText}>YakSok</span>
           </div>
-          <div className={styles.greeting}>안녕하세요, {nickname}님 👋</div>
+          <div className={styles.greeting}>안녕하세요, {nickname}님 </div>
           <div className={styles.date}>
             {now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
           </div>
@@ -98,7 +97,7 @@ export default function HomePage() {
               </div>
               <div className={styles.pctRow}>
                 <span className={styles.pct}>{pct}% 완료</span>
-                {pct === 100 && totalCnt > 0 && <span className={styles.allDone}>🎉 오늘 복약 완료!</span>}
+                {pct === 100 && totalCnt > 0 && <span className={styles.allDone}> 오늘 복약 완료!</span>}
               </div>
             </div>
 
@@ -107,7 +106,6 @@ export default function HomePage() {
               <div className={styles.nextCard}>
                 <div className={styles.nextLabel}>다음 복약 시간</div>
                 <div className={styles.nextRow}>
-                  <span className={styles.nextIcon}>💊</span>
                   <div>
                     <div className={styles.nextName}>{nextMed.name}</div>
                     <div className={styles.nextTime}>{nextMed.time}</div>

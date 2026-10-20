@@ -24,7 +24,7 @@
 }
 
 .profileInfo { flex: 1; }
-.name { font-size: 18px; font-weight: 800; color: #fff; }
+.name { font-size: 20px; font-weight: 800; color: #fff; }
 .email { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 3px; }
 
 /* 섹션 */
@@ -49,8 +49,6 @@
 }
 
 .statWarning { border-color: #F5BC3D; background: #FFFCF0; }
-
-.statIcon { font-size: 22px; }
 .statValue { font-size: 16px; font-weight: 800; color: var(--text); }
 .statLabel { font-size: 11px; color: var(--text-sub); font-weight: 500; text-align: center; }
 

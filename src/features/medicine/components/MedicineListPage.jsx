@@ -222,11 +222,10 @@ export default function MedicineListPage() {
           medicines.map(m => (
             <div key={m.id} className={styles.card}>
               <div className={styles.cardTop}>
-                <div className={styles.iconWrap}>💊</div>
                 <div className={styles.info}>
                   <div className={styles.name}>{m.medicineName}</div>
                   {m.alarmTime && (
-                    <div className={styles.ingredient}>⏰ {formatTime(m.alarmTime)} 알람</div>
+                    <div className={styles.ingredient}>{formatTime(m.alarmTime)} 알람</div>
                   )}
                 </div>
               </div>
@@ -239,20 +238,20 @@ export default function MedicineListPage() {
                   className={styles.aiBtn}
                   onClick={() => handleAiClick(m)}
                 >
-                  🤖 Gemini AI 복약 설명
+                  Gemini AI 복약 설명
                 </button>
                 <button
                   className={styles.editBtn}
                   onClick={() => openEdit(m)}
                 >
-                  ✏️ 수정
+                  수정
                 </button>
                 <button
                   className={styles.deleteBtn}
                   onClick={() => handleDelete(m.id)}
                   disabled={deletingId === m.id}
                 >
-                  {deletingId === m.id ? '삭제 중...' : '🗑️ 삭제'}
+                  {deletingId === m.id ? '삭제 중...' : '삭제'}
                 </button>
               </div>
             </div>
@@ -273,12 +272,11 @@ export default function MedicineListPage() {
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <div className={styles.modalHandle} />
             <div className={styles.modalHeader}>
-              <h2>🤖 Gemini AI 복약 설명</h2>
+              <h2> Gemini AI 복약 설명</h2>
               <button onClick={() => setAiModal(null)}>✕</button>
             </div>
             <div className={styles.modalBody}>
               <div className={styles.modalMedRow}>
-                <span>💊</span>
                 <span className={styles.modalMedName}>{aiModal.medicineName}</span>
                 {aiModal.alarmTime && (
                   <span className={styles.modalMedSub}>{formatTime(aiModal.alarmTime)} 알람</span>
@@ -294,13 +292,13 @@ export default function MedicineListPage() {
                   <div className={styles.aiBox}>
                     {drugInfo.company && <p className={styles.infoCompany}>{drugInfo.company}</p>}
                     {[
-                      ['💡 효능', drugInfo.efficacy],
-                      ['💊 사용법', drugInfo.usage],
-                      ['⚠️ 사용 전 알아야 할 내용', drugInfo.warning],
-                      ['🚫 주의사항', drugInfo.precaution],
-                      ['🔀 상호작용', drugInfo.interaction],
-                      ['🤒 부작용', drugInfo.sideEffect],
-                      ['📦 보관법', drugInfo.storage],
+                      ['효능', drugInfo.efficacy],
+                      ['사용법', drugInfo.usage],
+                      ['사용 전 알아야 할 내용', drugInfo.warning],
+                      ['주의사항', drugInfo.precaution],
+                      ['상호작용', drugInfo.interaction],
+                      ['부작용', drugInfo.sideEffect],
+                      ['보관법', drugInfo.storage],
                     ].filter(([, v]) => v).map(([label, v]) => (
                       <div key={label} className={styles.infoSection}>
                         <div className={styles.infoLabel}>{label}</div>
@@ -327,7 +325,7 @@ export default function MedicineListPage() {
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <div className={styles.modalHandle} />
             <div className={styles.modalHeader}>
-              <h2>✏️ 약 정보 수정</h2>
+              <h2> 약 정보 수정</h2>
               <button onClick={() => setEditModal(null)}>✕</button>
             </div>
             <div className={styles.modalBody}>

@@ -157,13 +157,11 @@ export default function MedicineAddPage() {
       {step === 1 && !inputMode && (
         <div className={styles.content}>
           <div className={styles.photoGuide}>
-            <div className={styles.photoGuideIcon}>💊</div>
             <div className={styles.photoGuideTitle}>약을 어떻게 등록할까요?</div>
             <div className={styles.photoGuideDesc}>사진 촬영 또는 직접 입력 중 선택하세요</div>
           </div>
 
           <div className={styles.modeCard} onClick={() => setInputMode('photo')}>
-            <div className={styles.modeIcon}>📷</div>
             <div className={styles.modeInfo}>
               <div className={styles.modeTitle}>처방전 / 약봉투 사진 촬영</div>
               <div className={styles.modeSub}>AI가 자동으로 약 정보를 인식해요</div>
@@ -172,7 +170,6 @@ export default function MedicineAddPage() {
           </div>
 
           <div className={styles.modeCard} onClick={() => setInputMode('manual')}>
-            <div className={styles.modeIcon}>✏️</div>
             <div className={styles.modeInfo}>
               <div className={styles.modeTitle}>약 이름 직접 입력</div>
               <div className={styles.modeSub}>약 이름을 직접 타이핑해서 등록해요</div>
@@ -190,7 +187,6 @@ export default function MedicineAddPage() {
       {step === 1 && inputMode === 'photo' && (
         <div className={styles.content}>
           <div className={styles.photoGuide}>
-            <div className={styles.photoGuideIcon}>📋</div>
             <div className={styles.photoGuideTitle}>처방전 또는 약봉투를 촬영해주세요</div>
             <div className={styles.photoGuideDesc}>AI가 자동으로 약 정보를 인식합니다</div>
           </div>
@@ -207,7 +203,6 @@ export default function MedicineAddPage() {
             </div>
           ) : (
             <div className={styles.cameraWrap} onClick={handlePhotoClick}>
-              <div className={styles.cameraIcon}>📷</div>
               <div className={styles.cameraText}>눌러서 사진 촬영 또는 선택</div>
               <div className={styles.cameraSub}>카메라 또는 갤러리에서 선택</div>
             </div>
@@ -232,7 +227,7 @@ export default function MedicineAddPage() {
           )}
 
           <div className={styles.tipBox}>
-            <div className={styles.tipTitle}>📌 촬영 팁</div>
+            <div className={styles.tipTitle}> 촬영 팁</div>
             <div className={styles.tipItem}>• 처방전 전체가 보이도록 찍어주세요</div>
             <div className={styles.tipItem}>• 밝은 곳에서 촬영하면 인식률이 높아요</div>
             <div className={styles.tipItem}>• 약봉투의 약 이름 부분을 선명하게 찍어주세요</div>
@@ -244,7 +239,6 @@ export default function MedicineAddPage() {
       {step === 1 && inputMode === 'manual' && (
         <div className={styles.content}>
           <div className={styles.photoGuide}>
-            <div className={styles.photoGuideIcon}>✏️</div>
             <div className={styles.photoGuideTitle}>약 이름을 입력해주세요</div>
             <div className={styles.photoGuideDesc}>복용 중인 약의 이름을 직접 입력하세요</div>
           </div>
@@ -262,7 +256,7 @@ export default function MedicineAddPage() {
             />
             {notFound && (
               <div className={styles.notFoundMsg}>
-                ⚠️ 약이 존재하지 않습니다. 약 이름을 다시 확인해주세요.
+                약이 존재하지 않습니다. 약 이름을 다시 확인해주세요.
               </div>
             )}
           </div>
@@ -285,7 +279,6 @@ export default function MedicineAddPage() {
       {step === 2 && (
         <div className={styles.content}>
           <div className={styles.selectedCard}>
-            <span className={styles.selectedCardIcon}>💊</span>
             <div>
               <div className={styles.selectedName}>{selectedMed.name}</div>
               <div className={styles.selectedInfo}>{selectedMed.ingredient}</div>
@@ -333,7 +326,7 @@ export default function MedicineAddPage() {
       {step === 3 && (
         <div className={styles.content}>
           <div className={styles.prescCard}>
-            <div className={styles.prescCardTitle}>📋 처방전 정보 등록</div>
+            <div className={styles.prescCardTitle}>처방전 정보 등록</div>
             <div className={styles.prescCardDesc}>처방 시작일과 처방일수를 입력해주세요</div>
           </div>
 

@@ -88,7 +88,6 @@
   width: 100%;
 }
 .photoBtn:hover { background: #E0F7FB; }
-.photoBtnIcon { font-size: 28px; flex-shrink: 0; }
 .photoBtnTitle { font-size: 14px; font-weight: 700; color: var(--primary); }
 .photoBtnSub { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
 
@@ -152,7 +151,6 @@
   cursor: pointer; transition: all 0.13s;
 }
 .resultItem:hover { border-color: var(--primary); }
-.resultIcon { font-size: 24px; flex-shrink: 0; }
 .resultInfo { flex: 1; }
 .resultName { font-size: 14px; font-weight: 700; color: var(--text); }
 .resultSub { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
@@ -163,7 +161,6 @@
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   border-radius: 16px; padding: 18px;
 }
-.selectedCardIcon { font-size: 32px; }
 .selectedName { font-size: 16px; font-weight: 700; color: #fff; }
 .selectedInfo { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 3px; }
 
@@ -244,7 +241,6 @@
   display: flex; flex-direction: column; align-items: center;
   gap: 8px; padding: 24px 16px 16px; text-align: center;
 }
-.photoGuideIcon { font-size: 40px; }
 .photoGuideTitle { font-size: 16px; font-weight: 700; color: var(--text); }
 .photoGuideDesc { font-size: 13px; color: var(--text-sub); }
 
@@ -255,7 +251,6 @@
   background: #F0FBFD; cursor: pointer; transition: all 0.13s;
 }
 .cameraWrap:hover { background: #E0F7FB; }
-.cameraIcon { font-size: 48px; }
 .cameraText { font-size: 15px; font-weight: 700; color: var(--primary); }
 .cameraSub { font-size: 12px; color: var(--text-sub); }
 
@@ -319,7 +314,6 @@
   border-color: var(--primary);
   box-shadow: 0 4px 16px rgba(59,191,212,0.15);
 }
-.modeIcon { font-size: 32px; flex-shrink: 0; }
 .modeInfo { flex: 1; }
 .modeTitle { font-size: 15px; font-weight: 700; color: var(--text); }
 .modeSub { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
