@@ -67,8 +67,6 @@
   cursor: pointer;
 }
 
-.warningIcon { font-size: 24px; }
-
 .warningTitle {
   font-size: 13px;
   font-weight: 700;
@@ -172,8 +170,6 @@
   align-items: center;
   gap: 12px;
 }
-
-.nextIcon { font-size: 32px; }
 
 .nextName {
   font-size: 17px;
