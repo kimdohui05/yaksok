@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import client from '../../../api/client'
+import { checkInteractions } from '../utils/durCheck'
 import BottomTab from '../../../components/common/BottomTab'
 import styles from './MedicineListPage.module.css'
 
@@ -34,6 +35,10 @@ export default function MedicineListPage() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiText, setAiText] = useState('')
   const [drugInfo, setDrugInfo] = useState(null)
+  // e약은요 정보가 없을 때 대신 보여줄 병용금기 목록: [{ name, reason }]
+  const [tabooList, setTabooList] = useState([])
+  // 등록된 내 약 중 병용금기인 약: [{ name, reasons }]
+  const [myTaboo, setMyTaboo] = useState([])
   const [editModal, setEditModal] = useState(null)
   const [editForm, setEditForm] = useState({ medicineName: '', alarmTime: '', startDate: '', days: '' })
   const [editSaving, setEditSaving] = useState(false)
@@ -85,6 +90,10 @@ export default function MedicineListPage() {
     setAiLoading(true)
     setAiText('')
     setDrugInfo(null)
+    setTabooList([])
+    setMyTaboo([])
+    // 내 약과의 병용금기 확인 (실패하면 빈 배열)
+    const myTabooPromise = checkInteractions(medicine.medicineName, medicines)
     try {
       // 백엔드 DUR 품목정보 API (e약은요) 조회
       const search = async (name) => {
@@ -100,7 +109,17 @@ export default function MedicineListPage() {
       if (list.length > 0) {
         setDrugInfo(list[0])
       } else {
-        setAiText(`${medicine.medicineName}에 대한 품목정보를 찾지 못했습니다. 반드시 의사 또는 약사와 상담하세요.`)
+        // 전문의약품 등 e약은요에 없는 약 → DUR 병용금기 정보로 대체
+        const res = await client.get('/api/dur/check', { params: { itemName: medicine.medicineName } })
+        const seen = new Set()
+        const taboo = (Array.isArray(res.data) ? res.data : [])
+          .map(t => ({ name: t.MIXTURE_ITEM_NAME, reason: t.PROHBT_CONTENT?.trim() }))
+          .filter(t => t.name && !seen.has(t.name) && seen.add(t.name))
+        if (taboo.length > 0) {
+          setTabooList(taboo)
+        } else {
+          setAiText(`${medicine.medicineName}에 대한 품목정보를 찾지 못했습니다. 반드시 의사 또는 약사와 상담하세요.`)
+        }
       }
     } catch (err) {
       console.error('품목정보 조회 실패', err)
@@ -108,6 +127,7 @@ export default function MedicineListPage() {
       setAiText(`약 정보를 불러오지 못했습니다.${status ? ` (오류 ${status})` : ''} 서버(/api/dur/info) 상태를 확인해주세요.`)
     } finally {
       // 추후 Gemini API 연동 시 drugInfo를 프롬프트로 전달해 요약 생성
+      setMyTaboo(await myTabooPromise)
       setAiLoading(false)
     }
   }
@@ -238,7 +258,7 @@ export default function MedicineListPage() {
                   className={styles.aiBtn}
                   onClick={() => handleAiClick(m)}
                 >
-                  Gemini AI 복약 설명
+                  복약 설명
                 </button>
                 <button
                   className={styles.editBtn}
@@ -272,7 +292,7 @@ export default function MedicineListPage() {
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <div className={styles.modalHandle} />
             <div className={styles.modalHeader}>
-              <h2> Gemini AI 복약 설명</h2>
+              <h2>복약 설명</h2>
               <button onClick={() => setAiModal(null)}>✕</button>
             </div>
             <div className={styles.modalBody}>
@@ -285,10 +305,20 @@ export default function MedicineListPage() {
               {aiLoading ? (
                 <div className={styles.aiLoading}>
                   <div className={styles.spinner} />
-                  <span>Gemini AI가 분석 중입니다...</span>
+                  <span>약 정보를 불러오는 중입니다...</span>
                 </div>
-              ) : (
-                drugInfo ? (
+              ) : (<>
+                {myTaboo.length > 0 && (
+                  <div className={styles.myTabooBox}>
+                    <div className={styles.myTabooTitle}>⚠️ 복용 중인 약과 함께 먹으면 안 돼요</div>
+                    {myTaboo.map(t => (
+                      <div key={t.name} className={styles.myTabooItem}>
+                        • {t.name}{t.reasons.length > 0 && ` — ${t.reasons.join(', ')}`}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {drugInfo ? (
                   <div className={styles.aiBox}>
                     {drugInfo.company && <p className={styles.infoCompany}>{drugInfo.company}</p>}
                     {[
@@ -306,14 +336,27 @@ export default function MedicineListPage() {
                       </div>
                     ))}
                   </div>
+                ) : tabooList.length > 0 ? (
+                  <div className={styles.aiBox}>
+                    <p className={styles.infoCompany}>약 설명 정보가 없는 약이라 병용금기 정보를 대신 보여드려요.</p>
+                    <div className={styles.infoSection}>
+                      <div className={styles.infoLabel}>같이 복용하면 안 되는 약 ({tabooList.length}건)</div>
+                      {tabooList.map(t => (
+                        <div key={t.name} className={styles.tabooItem}>
+                          <span className={styles.tabooName}>{t.name}</span>
+                          {t.reason && <span className={styles.tabooReason}>{t.reason}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
                   <div className={styles.aiBox}>
                     <p className={styles.aiText}>{aiText}</p>
                   </div>
-                )
-              )}
+                )}
+              </>)}
               <div className={styles.modalDisclaimer}>
-                ⚕️ AI 설명은 참고용이며 의학적 소견을 대체하지 않습니다.
+                ⚕️ 본 정보는 참고용이며 의학적 소견을 대체하지 않습니다.
               </div>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import client from '../../../api/client'
+import { checkInteractions } from '../utils/durCheck'
 import styles from './MedicineAddPage.module.css'
 
 export default function MedicineAddPage() {
@@ -16,6 +17,8 @@ export default function MedicineAddPage() {
   const [times, setTimes] = useState([''])
   const [frequency, setFrequency] = useState('')
   const [saving, setSaving] = useState(false)
+  // DUR 병용금기 경고: [{ name, reasons }]
+  const [interactions, setInteractions] = useState([])
 
   // 사진 모드
   const [photoPreview, setPhotoPreview] = useState(null)
@@ -31,6 +34,15 @@ export default function MedicineAddPage() {
   const [prescriptionDate, setPrescriptionDate] = useState(
     new Date().toISOString().split('T')[0]
   )
+
+  // ── DUR 병용금기 확인 (실패해도 등록은 진행) ──
+  const loadInteractions = async (name) => {
+    setInteractions([])
+    try {
+      const res = await client.get('/medications')
+      setInteractions(await checkInteractions(name, res.data || []))
+    } catch {}
+  }
 
   // ── 사진 촬영 ──
   const handlePhotoClick = () => fileInputRef.current?.click()
@@ -48,6 +60,7 @@ export default function MedicineAddPage() {
           name: '타이레놀',
           ingredient: '아세트아미노펜 500mg (OCR 인식 결과)',
         })
+        loadInteractions('타이레놀')
         setAnalyzing(false)
         setStep(2)
       }, 1500)
@@ -61,18 +74,23 @@ export default function MedicineAddPage() {
     setNotFound(false)
     setChecking(true)
     try {
-      const res = await client.get('/api/dur/check', {
-        params: { itemName: manualName.trim() }
-      })
-      if (res.data.length === 0) {
+      // 일반의약품(e약은요) 또는 병용금기 목록 중 하나라도 있으면 통과
+      const params = { itemName: manualName.trim() }
+      const [info, check] = await Promise.all([
+        client.get('/api/dur/info', { params }),
+        client.get('/api/dur/check', { params }),
+      ])
+      if (info.data.length === 0 && check.data.length === 0) {
         setNotFound(true)
         return
       }
       setSelectedMed({ name: manualName.trim(), ingredient: '직접 입력' })
+      await loadInteractions(manualName.trim())
       setStep(2)
     } catch (err) {
       // API 오류 시 그냥 통과 (DUR 서버 문제일 수 있음)
       setSelectedMed({ name: manualName.trim(), ingredient: '직접 입력' })
+      await loadInteractions(manualName.trim())
       setStep(2)
     } finally {
       setChecking(false)
@@ -164,7 +182,7 @@ export default function MedicineAddPage() {
           <div className={styles.modeCard} onClick={() => setInputMode('photo')}>
             <div className={styles.modeInfo}>
               <div className={styles.modeTitle}>처방전 / 약봉투 사진 촬영</div>
-              <div className={styles.modeSub}>AI가 자동으로 약 정보를 인식해요</div>
+              <div className={styles.modeSub}>자동으로 약 정보를 인식해요</div>
             </div>
             <span className={styles.modeArrow}>→</span>
           </div>
@@ -188,7 +206,7 @@ export default function MedicineAddPage() {
         <div className={styles.content}>
           <div className={styles.photoGuide}>
             <div className={styles.photoGuideTitle}>처방전 또는 약봉투를 촬영해주세요</div>
-            <div className={styles.photoGuideDesc}>AI가 자동으로 약 정보를 인식합니다</div>
+            <div className={styles.photoGuideDesc}>자동으로 약 정보를 인식합니다</div>
           </div>
 
           {photoPreview ? (
@@ -284,6 +302,18 @@ export default function MedicineAddPage() {
               <div className={styles.selectedInfo}>{selectedMed.ingredient}</div>
             </div>
           </div>
+
+          {interactions.length > 0 && (
+            <div className={styles.durWarning}>
+              <div className={styles.durTitle}>⚠️ 함께 복용하면 안 되는 약이 있어요</div>
+              {interactions.map(it => (
+                <div key={it.name} className={styles.durItem}>
+                  • {it.name}{it.reasons.length > 0 && ` — ${it.reasons.join(', ')}`}
+                </div>
+              ))}
+              <div className={styles.durDesc}>반드시 의사 또는 약사와 상담하세요.</div>
+            </div>
+          )}
 
           <div className={styles.formGroup}>
             <label className={styles.label}>복용 횟수</label>

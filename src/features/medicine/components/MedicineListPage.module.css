@@ -254,6 +254,26 @@
 .infoSection:last-child { margin-bottom: 0; }
 .infoLabel { font-size: 12px; font-weight: 700; color: #4285F4; margin-bottom: 4px; }
 
+/* 병용금기 목록 (e약은요 정보 없을 때) */
+.tabooItem {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 0; border-bottom: 1px solid #E3EDF7;
+}
+.tabooItem:last-child { border-bottom: none; }
+.tabooName { font-size: 13px; font-weight: 600; color: var(--text); }
+.tabooReason { font-size: 12px; color: var(--danger); }
+
+/* 복용 중인 내 약과의 병용금기 강조 */
+.myTabooBox {
+  padding: 14px; margin-bottom: 12px;
+  border-radius: 12px;
+  background: #FFF8E6;
+  border: 1px solid var(--warning);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.myTabooTitle { font-size: 14px; font-weight: 700; color: var(--danger); }
+.myTabooItem { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.5; }
+
 .modal { max-height: 85vh; overflow-y: auto; }
 
 .modalDisclaimer {

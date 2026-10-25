@@ -131,6 +131,18 @@
   font-weight: 600;
 }
 
+/* DUR 병용금기 경고 */
+.durWarning {
+  padding: 14px;
+  border-radius: 12px;
+  background: #FFF8E6;
+  border: 1px solid var(--warning);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.durTitle { font-size: 14px; font-weight: 700; color: var(--danger); }
+.durItem { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.5; }
+.durDesc { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+
 .searchBtn {
   padding: 13px 20px;
   border-radius: 12px;

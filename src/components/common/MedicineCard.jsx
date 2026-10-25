@@ -26,7 +26,7 @@ export default function MedicineCard({ medicine, onAiClick }) {
         className={styles.aiBtn}
         onClick={e => { e.stopPropagation(); onAiClick && onAiClick(medicine) }}
       >
-        🤖 Gemini AI 복약 설명 보기
+        복약 설명 보기
       </button>
     </div>
   )
