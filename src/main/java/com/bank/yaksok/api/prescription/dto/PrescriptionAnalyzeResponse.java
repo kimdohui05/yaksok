@@ -8,8 +8,13 @@ import java.util.List;
  */
 public record PrescriptionAnalyzeResponse(
         String prescriptionDate,   // yyyy-MM-dd, 못 읽으면 null
-        List<Medicine> medicines
+        List<Medicine> medicines,
+        String qualityWarning      // 사진 화질이 나빠 인식이 부정확할 수 있을 때 안내 문구, 괜찮으면 null
 ) {
+    public PrescriptionAnalyzeResponse(String prescriptionDate, List<Medicine> medicines) {
+        this(prescriptionDate, medicines, null);
+    }
+
     public record Medicine(
             String name,           // 예: 타이레놀정500mg (교정되면 공식 품목명)
             String dose,           // 1회 복용량, 예: 1정 (못 읽으면 null)

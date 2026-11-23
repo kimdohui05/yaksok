@@ -11,8 +11,13 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GeminiPrescriptionResult(
         String prescriptionDate,
-        List<Item> medicines
+        List<Item> medicines,
+        String readability   // GOOD / PARTIAL / POOR : 사진 글씨가 얼마나 잘 읽히는지 (AI 판단)
 ) {
+    public GeminiPrescriptionResult(String prescriptionDate, List<Item> medicines) {
+        this(prescriptionDate, medicines, null);
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Item(
             String name,

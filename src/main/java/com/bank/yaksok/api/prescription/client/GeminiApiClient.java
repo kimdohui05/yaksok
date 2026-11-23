@@ -50,6 +50,12 @@ public class GeminiApiClient {
 
             환자 이름, 주민등록번호, 주소, 병원명, 의사 이름 같은 개인정보는 절대 출력하지 마라.
             약이 하나도 보이지 않으면 medicines 를 빈 배열로 둬라.
+
+            [사진 화질 판단]
+            - readability: 약 목록 표의 글씨가 얼마나 잘 읽히는지
+              GOOD = 약 이름과 숫자를 모두 확실히 읽을 수 있음
+              PARTIAL = 흐리거나 작거나 가려져서 일부 글자·숫자가 확실하지 않음
+              POOR = 대부분 읽기 어려움 (흐림, 너무 작음, 어두움, 빛 반사, 일부만 찍힘)
             """;
 
     /** Gemini 구조화 출력 스키마: 응답을 항상 같은 JSON 모양으로 받기 위함 */
@@ -57,6 +63,7 @@ public class GeminiApiClient {
             "type", "OBJECT",
             "properties", Map.of(
                     "prescriptionDate", Map.of("type", "STRING", "nullable", true),
+                    "readability", Map.of("type", "STRING", "enum", List.of("GOOD", "PARTIAL", "POOR")),
                     "medicines", Map.of(
                             "type", "ARRAY",
                             "items", Map.of(
@@ -72,7 +79,7 @@ public class GeminiApiClient {
                             )
                     )
             ),
-            "required", List.of("medicines")
+            "required", List.of("medicines", "readability")
     );
 
     private final RestClient restClient;

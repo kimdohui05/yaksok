@@ -38,6 +38,7 @@ public class PrescriptionService {
     private final GeminiApiClient geminiApiClient;
     private final PrescriptionResultCleaner resultCleaner;
     private final DrugNameVerifier drugNameVerifier;
+    private final ImageQualityChecker imageQualityChecker;
     private final ObjectMapper objectMapper;
 
     /** 최대 시도 횟수 (환경변수 GEMINI_MAX_ATTEMPTS, 기본 4) */
@@ -63,11 +64,24 @@ public class PrescriptionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사진을 읽지 못했습니다. 다시 촬영해 주세요.");
         }
 
-        PrescriptionAnalyzeResponse cleaned = resultCleaner.clean(callGeminiWithRetry(bytes, mimeType));
+        // 사진이 너무 작으면 AI 를 부르지 않고 바로 안내 (할당량 절약)
+        ImageQualityChecker.Resolution resolution = imageQualityChecker.checkResolution(bytes);
+        if (resolution == ImageQualityChecker.Resolution.TOO_LOW) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, ImageQualityChecker.UNREADABLE_MESSAGE);
+        }
+
+        GeminiPrescriptionResult raw = callGeminiWithRetry(bytes, mimeType);
+        PrescriptionAnalyzeResponse cleaned = resultCleaner.clean(raw);
+        boolean poorQuality = resolution == ImageQualityChecker.Resolution.LOW
+                || ImageQualityChecker.isPoorReadability(raw.readability());
 
         if (cleaned.medicines().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,
-                    "처방전에서 약 정보를 찾지 못했습니다. 처방전 전체가 잘 보이게 다시 촬영해 주세요.");
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, poorQuality
+                    ? ImageQualityChecker.UNREADABLE_MESSAGE
+                    : "처방전에서 약 정보를 찾지 못했습니다. 처방전 전체가 잘 보이게 다시 촬영해 주세요.");
+        }
+        if (poorQuality) {
+            log.info("화질 경고: resolution={}, readability={}", resolution, raw.readability());
         }
 
         // AI 가 읽은 약 이름을 공공데이터로 검증 (보험코드 → 허가정보 → e약은요)
@@ -77,7 +91,8 @@ public class PrescriptionService {
                     return m.withVerification(v.name(), v.verified(), v.originalName(), v.suggestedName());
                 })
                 .toList();
-        return new PrescriptionAnalyzeResponse(cleaned.prescriptionDate(), verifiedMedicines);
+        return new PrescriptionAnalyzeResponse(cleaned.prescriptionDate(), verifiedMedicines,
+                poorQuality ? ImageQualityChecker.WARNING_MESSAGE : null);
     }
 
     /** 파일 형식·크기 검사. 통과하면 Gemini 에 보낼 MIME 타입을 돌려준다. */
