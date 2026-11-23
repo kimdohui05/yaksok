@@ -59,16 +59,18 @@ public class GeminiApiClient {
     private final RestClient restClient;
     private final String apiKey;
     private final String model;
+    private final String fallbackModel;
 
     public GeminiApiClient(
             @Value("${gemini.base-url}") String baseUrl,
             @Value("${gemini.api-key:}") String apiKey,
-            @Value("${gemini.model}") String model
+            @Value("${gemini.model}") String model,
+            @Value("${gemini.fallback-model:}") String fallbackModel
     ) {
-        // 시간 제한: Gemini 가 응답을 안 주면 무한정 기다리지 않도록
+        // 시간 제한: 이미지 분석은 오래 걸릴 수 있어 60초까지 기다리고, 그 이상은 끊는다
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(5));
-        requestFactory.setReadTimeout(Duration.ofSeconds(30));
+        requestFactory.setReadTimeout(Duration.ofSeconds(60));
 
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
@@ -76,17 +78,28 @@ public class GeminiApiClient {
                 .build();
         this.apiKey = apiKey;
         this.model = model;
+        this.fallbackModel = fallbackModel;
     }
 
     public boolean hasApiKey() {
         return apiKey != null && !apiKey.isBlank();
     }
 
+    /** 기본 모델 */
+    public String primaryModel() {
+        return model;
+    }
+
+    /** 재시도에 쓸 모델. 예비 모델이 설정돼 있으면 그것, 없으면 기본 모델 */
+    public String retryModel() {
+        return (fallbackModel == null || fallbackModel.isBlank()) ? model : fallbackModel;
+    }
+
     /**
      * 처방전 사진을 보내고 Gemini 가 만든 JSON 문자열을 돌려준다.
      * 텍스트가 없으면(안전 필터 차단 등) null.
      */
-    public String analyzePrescription(byte[] image, String mimeType) {
+    public String analyzePrescription(byte[] image, String mimeType, String modelName) {
         Map<String, Object> body = Map.of(
                 "contents", List.of(Map.of(
                         "parts", List.of(
@@ -105,7 +118,7 @@ public class GeminiApiClient {
         );
 
         GeminiResponse response = restClient.post()
-                .uri("/models/{model}:generateContent", model)
+                .uri("/models/{model}:generateContent", modelName)
                 .header("x-goog-api-key", apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)

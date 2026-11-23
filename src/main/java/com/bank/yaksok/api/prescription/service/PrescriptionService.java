@@ -87,27 +87,74 @@ public class PrescriptionService {
 
     /**
      * 분석은 조회성 요청이라 다시 보내도 부작용이 없다.
-     * 일시적 장애(서버 5xx, 시간 초과)일 때만 한 번 재시도한다.
+     * 일시적 장애(서버 5xx, 사용량 초과 429, 시간 초과)일 때만
+     * 잠깐 기다렸다가 한 번 재시도한다. 예비 모델이 설정돼 있으면 재시도는 예비 모델로 보낸다.
      */
     private String callGeminiWithOneRetry(byte[] bytes, String mimeType) {
+        String primary = geminiApiClient.primaryModel();
         try {
-            return geminiApiClient.analyzePrescription(bytes, mimeType);
-        } catch (HttpServerErrorException | ResourceAccessException e) {
-            log.warn("Gemini 일시 오류, 1회 재시도: {}", e.getMessage());
-            try {
-                return geminiApiClient.analyzePrescription(bytes, mimeType);
-            } catch (RestClientException retryError) {
-                log.error("Gemini 재시도 실패", retryError);
+            return geminiApiClient.analyzePrescription(bytes, mimeType, primary);
+        } catch (RestClientException e) {
+            if (!isTemporary(e)) {
+                logRejected(e);
                 throw aiUnavailable();
             }
-        } catch (HttpClientErrorException e) {
-            // 400/403/404/429: 키 오류, 모델명 오류, 호출 한도 초과 등 → 재시도해도 같음
-            log.error("Gemini 요청 거절: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw aiUnavailable();
+            log.warn("Gemini 일시 오류({}), 2초 후 1회 재시도: {}", primary, shortMessage(e));
+        }
+
+        sleepBeforeRetry();
+        String retry = geminiApiClient.retryModel();
+        try {
+            return geminiApiClient.analyzePrescription(bytes, mimeType, retry);
         } catch (RestClientException e) {
+            log.error("Gemini 재시도 실패({}): {}", retry, shortMessage(e));
+            throw isTemporary(e) ? aiBusy() : aiUnavailable();
+        }
+    }
+
+    /** 다시 시도하면 될 수도 있는 오류인지 */
+    private boolean isTemporary(RestClientException e) {
+        if (e instanceof HttpServerErrorException || e instanceof ResourceAccessException) {
+            return true;
+        }
+        if (e instanceof HttpClientErrorException clientError) {
+            return clientError.getStatusCode().value() == 429; // 호출 한도 초과
+        }
+        // 응답 본문을 읽다가 시간 초과된 경우 RestClientException 으로 감싸져 온다
+        Throwable cause = e.getCause();
+        while (cause != null) {
+            if (cause instanceof java.net.SocketTimeoutException) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
+    }
+
+    private void logRejected(RestClientException e) {
+        if (e instanceof HttpClientErrorException clientError) {
+            // 400/401/403/404: 키 오류, 모델명 오류 등 → 재시도해도 같음
+            log.error("Gemini 요청 거절: status={}, body={}",
+                    clientError.getStatusCode(), clientError.getResponseBodyAsString());
+        } else {
             log.error("Gemini 호출 실패", e);
+        }
+    }
+
+    private void sleepBeforeRetry() {
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
             throw aiUnavailable();
         }
+    }
+
+    private String shortMessage(Exception e) {
+        String message = e.getMessage();
+        if (message == null) return e.getClass().getSimpleName();
+        message = message.replace('\n', ' ');
+        return message.length() > 200 ? message.substring(0, 200) + "..." : message;
     }
 
     private GeminiPrescriptionResult parse(String json) {
@@ -123,6 +170,12 @@ public class PrescriptionService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "처방전을 읽지 못했습니다. 다시 촬영해 주세요.");
         }
+    }
+
+    /** Gemini 가 붐비거나 응답이 늦을 때. 프론트는 이 문구를 그대로 보여주면 된다. */
+    private ResponseStatusException aiBusy() {
+        return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "지금 AI 사용량이 많아 분석하지 못했습니다. 잠시 후 다시 촬영해 주세요.");
     }
 
     private ResponseStatusException aiUnavailable() {
