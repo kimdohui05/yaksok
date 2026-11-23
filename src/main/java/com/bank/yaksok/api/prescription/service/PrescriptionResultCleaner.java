@@ -43,11 +43,28 @@ public class PrescriptionResultCleaner {
         }
         return new PrescriptionAnalyzeResponse.Medicine(
                 name,
-                blankToNull(item.dose()),
+                cleanDose(item.dose()),
                 inRange(item.timesPerDay(), MAX_TIMES_PER_DAY),
                 inRange(item.days(), MAX_DAYS),
                 cleanEdiCode(item.ediCode())
         );
+    }
+
+    /** 처방전 소수 표기 정리: "1.00정" → "1정", "0.50정" → "0.5정", "1.25ml" 는 그대로 */
+    static String cleanDose(String dose) {
+        String value = blankToNullStatic(dose);
+        if (value == null) {
+            return null;
+        }
+        return value
+                .replaceAll("(\\d+)\\.0+(?!\\d)", "$1")
+                .replaceAll("(\\d+\\.\\d*?[1-9])0+(?!\\d)", "$1");
+    }
+
+    private static String blankToNullStatic(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return (trimmed.isEmpty() || trimmed.equalsIgnoreCase("null")) ? null : trimmed;
     }
 
     /** 보험코드는 숫자 9자리만 인정 (공백·하이픈은 제거) */

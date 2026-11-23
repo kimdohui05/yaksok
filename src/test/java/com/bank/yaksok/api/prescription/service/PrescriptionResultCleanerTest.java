@@ -64,4 +64,14 @@ class PrescriptionResultCleanerTest {
         assertTrue(cleaner.clean(null).medicines().isEmpty());
         assertTrue(cleaner.clean(new GeminiPrescriptionResult(null, null)).medicines().isEmpty());
     }
+
+    @Test
+    void 투약량_소수_표기를_정리한다() {
+        assertEquals("1정", PrescriptionResultCleaner.cleanDose("1.00정"));
+        assertEquals("0.5정", PrescriptionResultCleaner.cleanDose("0.50정"));
+        assertEquals("1.25ml", PrescriptionResultCleaner.cleanDose("1.25ml"));
+        assertEquals("10ml", PrescriptionResultCleaner.cleanDose("10ml"));
+        assertEquals("2", PrescriptionResultCleaner.cleanDose("2.0"));
+        assertNull(PrescriptionResultCleaner.cleanDose(" "));
+    }
 }
