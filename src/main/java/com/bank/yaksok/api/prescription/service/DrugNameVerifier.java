@@ -16,15 +16,16 @@ import java.util.Set;
 /**
  * AI 가 읽은 약 이름을 공공데이터로 확인한다.
  *
- * 1) 보험코드(처방전 약 이름 앞 9자리)로 허가정보 API 조회 → 가장 정확
- *    단, 코드를 잘못 읽었을 수도 있으니 이름이 어느 정도 겹칠 때만 인정
- *    (앞 2글자가 같거나, 4글자 이상 이어지는 공통 부분이 있을 때)
- * 2) 이름으로 허가정보 API 조회 (그대로 → 용량 이후 제거 → 앞 2글자)
- *    전문의약품까지 포함되어 처방전 약을 찾을 수 있다
- * 3) 마지막으로 기존 e약은요 조회(DurService.getDrugInfo, /api/dur/info) — 일반의약품 보조
+ * 원칙: 약 이름은 틀리게 바꾸는 것이 가장 위험하다.
+ *  - 이름을 "자동으로" 바꾸는 것은 한 글자 차이(오인식)일 때만 한다.
+ *  - 그보다 많이 다르면 바꾸지 않고 suggestedName 으로 "제안"만 하고 verified=false 로 둔다.
+ *    (회사명 접두어가 같은 다른 약 — 예: 신일우소데옥시콜산정 ↔ 신일슈도에페드린정 — 을 막기 위함)
  *
- * 용량 숫자가 다르면(250mg vs 500mg) 다른 약일 수 있으므로 절대 바꾸지 않는다.
- * 확인이 안 되면 이름은 그대로 두고 verified=false (사용자가 화면에서 직접 확인).
+ * 조회 순서
+ *  1) 보험코드(처방전 약 이름 앞 9자리)로 허가정보 API 조회
+ *  2) 이름으로 허가정보 API 조회 (그대로 → 용량 이후 제거 → 앞 2글자)
+ *  3) 기존 e약은요 조회(DurService.getDrugInfo, /api/dur/info)
+ *  보험코드 결과와 이름 결과가 서로 다른 약을 가리키면 verified=false 로 사용자 확인을 받는다.
  */
 @Slf4j
 @Component
@@ -34,40 +35,62 @@ public class DrugNameVerifier {
     private final DrugPermitApiClient drugPermitApiClient;
     private final DurService durService;
 
-    public record Result(String name, boolean verified, String originalName) {}
+    /**
+     * @param name          화면에 보여줄 이름 (확인되면 그대로 또는 한 글자 교정된 이름)
+     * @param verified      공공데이터로 같은 약임이 확인됐는지
+     * @param originalName  한 글자 교정이 일어났을 때 AI 가 원래 읽은 이름
+     * @param suggestedName 확신할 수 없어 바꾸지 않았지만, 공공데이터에서 찾은 후보 이름
+     */
+    public record Result(String name, boolean verified, String originalName, String suggestedName) {}
 
     public Result verify(String aiName, String ediCode) {
-        // 1) 보험코드
+        // 1) 보험코드로 찾은 공식명
+        String byCode = null;
         if (ediCode != null) {
             try {
-                List<String> byCode = activeNames(drugPermitApiClient.searchByEdiCode(ediCode));
-                for (String official : byCode) {
-                    if (plausibleSameDrug(aiName, official)) {
-                        return resultForExact(aiName, official);
-                    }
-                }
+                byCode = activeNames(drugPermitApiClient.searchByEdiCode(ediCode)).stream().findFirst().orElse(null);
             } catch (RuntimeException e) {
                 log.warn("보험코드 조회 실패, 이름으로 계속: code={}, reason={}", ediCode, e.getMessage());
             }
         }
+        if (byCode != null) {
+            if (isSameDrug(aiName, byCode)) {
+                return new Result(aiName, true, null, null);
+            }
+            if (isOneCharOff(aiName, byCode)) {
+                return new Result(displayName(byCode), true, aiName, null);
+            }
+        }
 
-        // 2) 허가정보 API 이름 검색
+        // 2), 3) 이름 검색
+        Result byName = searchByName(aiName);
+
+        if (byCode != null) {
+            String suggestion = displayName(byCode);
+            if (byName != null) {
+                // 이름으로는 확인됐지만 보험코드는 다른 약을 가리킴 → 둘 중 무엇이 맞는지 사용자 확인
+                log.warn("보험코드와 이름이 다른 약을 가리킴: name={}, code={} -> {}", aiName, ediCode, byCode);
+                return new Result(byName.name(), false, byName.originalName(), suggestion);
+            }
+            return new Result(aiName, false, null, suggestion);
+        }
+        return byName != null ? byName : new Result(aiName, false, null, null);
+    }
+
+    /** 허가정보 → e약은요 순으로 이름 검색. 같은 약이거나 한 글자 차이일 때만 결과를 돌려준다. */
+    private Result searchByName(String aiName) {
         try {
-            Result byPermit = matchAmong(aiName, this::permitNames);
-            if (byPermit != null) return byPermit;
+            Result r = matchAmong(aiName, this::permitNames);
+            if (r != null) return r;
         } catch (RuntimeException e) {
             log.warn("허가정보 이름 조회 실패: name={}, reason={}", aiName, e.getMessage());
         }
-
-        // 3) 기존 e약은요 조회
         try {
-            Result byEasy = matchAmong(aiName, this::easyDrugNames);
-            if (byEasy != null) return byEasy;
+            return matchAmong(aiName, this::easyDrugNames);
         } catch (RuntimeException e) {
             log.warn("e약은요 조회 실패: name={}, reason={}", aiName, e.getMessage());
+            return null;
         }
-
-        return new Result(aiName, false, null);
     }
 
     private interface Searcher {
@@ -77,8 +100,9 @@ public class DrugNameVerifier {
     /** 그대로 → 용량 이후 제거 → 앞 2글자 순으로 후보를 모아 비교 */
     private Result matchAmong(String aiName, Searcher searcher) {
         List<String> first = searcher.search(aiName);
-        String same = findSame(aiName, first);
-        if (same != null) return resultFor(aiName, same);
+        if (findSame(aiName, first) != null) {
+            return new Result(aiName, true, null, null);
+        }
 
         Set<String> candidates = new LinkedHashSet<>(first);
         String shortName = shortName(aiName);
@@ -88,8 +112,11 @@ public class DrugNameVerifier {
         if (aiName.length() >= 3) {
             candidates.addAll(searcher.search(aiName.substring(0, 2)));
         }
-        String closest = findClosest(aiName, new ArrayList<>(candidates));
-        return closest == null ? null : resultFor(aiName, closest);
+        if (findSame(aiName, new ArrayList<>(candidates)) != null) {
+            return new Result(aiName, true, null, null);
+        }
+        String closest = findOneCharOff(aiName, new ArrayList<>(candidates));
+        return closest == null ? null : new Result(correctedName(aiName, closest), true, aiName, null);
     }
 
     private List<String> permitNames(String keyword) {
@@ -113,111 +140,48 @@ public class DrugNameVerifier {
 
     // ───── 아래는 외부 호출 없는 순수 로직 (단위 테스트 대상) ─────
 
-    /**
-     * 보험코드로 찾은 경우: 정확한 품목이므로, 같으면 읽은 이름 유지,
-     * 다르면 공식명(괄호 성분명 제외)으로 교정하고 원래 이름을 남긴다.
-     */
-    static Result resultForExact(String aiName, String official) {
-        if (normalize(official).equals(normalize(aiName))) {
-            return new Result(aiName, true, null);
-        }
-        return new Result(displayName(official), true, aiName);
+    /** 사실상 같은 약 이름인지 (괄호·공백·단위 표기 차이 무시, 읽은 이름에 용량이 없으면 공식명 용량도 무시) */
+    static boolean isSameDrug(String aiName, String official) {
+        String target = normalize(aiName);
+        return base(target, official).equals(target);
     }
 
-    /**
-     * 이름 검색으로 찾은 경우.
-     * - 사실상 같으면 읽은 이름 그대로 (verified)
-     * - 읽은 이름에 용량이 없으면 공식명의 용량은 모르는 것으로 보고, 용량 앞부분 이름으로만 교정
-     *   (예: "폰탈한캡슐" + "폰탈캡슐250밀리그램(메페남산)" → "폰탈캡슐")
-     * - 읽은 이름에 용량이 있으면 공식명(괄호 제외)으로 교정
-     */
-    static Result resultFor(String aiName, String official) {
+    /** 한 글자만 다른지 (OCR 오인식 수준). 읽은 이름에 용량 숫자가 있으면 숫자가 같아야 한다. */
+    static boolean isOneCharOff(String aiName, String official) {
         String target = normalize(aiName);
-        if (base(target, official).equals(target)) {
-            return new Result(aiName, true, null);
+        String c = base(target, official);
+        if (!digits(target).isEmpty() && !digits(c).equals(digits(target))) {
+            return false; // 용량이 다르면 다른 약
         }
-        String corrected = digits(target).isEmpty()
+        return distance(target, c) <= 1;
+    }
+
+    /** 같은 약 후보 */
+    static String findSame(String aiName, List<String> candidates) {
+        return candidates.stream().filter(c -> isSameDrug(aiName, c)).findFirst().orElse(null);
+    }
+
+    /** 한 글자 차이 후보 */
+    static String findOneCharOff(String aiName, List<String> candidates) {
+        return candidates.stream().filter(c -> isOneCharOff(aiName, c)).findFirst().orElse(null);
+    }
+
+    /** 이름 검색으로 교정할 때: 읽은 이름에 용량이 없으면 공식명에서도 용량은 붙이지 않는다 */
+    static String correctedName(String aiName, String official) {
+        return digits(normalize(aiName)).isEmpty()
                 ? shortName(displayName(official))
                 : displayName(official);
-        return new Result(corrected, true, aiName);
+    }
+
+    /** 비교 대상: 읽은 이름에 숫자가 없으면 후보에서도 용량 이후를 뺀다 */
+    private static String base(String normalizedTarget, String candidate) {
+        String c = normalize(candidate);
+        return digits(normalizedTarget).isEmpty() ? shortName(c) : c;
     }
 
     /** "폰탈캡슐(메페남산)" → "폰탈캡슐" (화면·저장용, 괄호는 겹쳐 있어도 모두 제거) */
     static String displayName(String official) {
         return removeParens(official).trim();
-    }
-
-    /**
-     * 보험코드로 찾은 약이 AI 가 읽은 약과 같은 약으로 볼 만한지.
-     * 코드를 잘못 읽어 엉뚱한 약이 나오는 경우를 걸러내되,
-     * 이름 앞글자만 잘못 읽은 경우(씨스본 ↔ 써스펜..이알서방정)는 통과시킨다.
-     */
-    static boolean plausibleSameDrug(String aiName, String official) {
-        return sameStart(aiName, official)
-                || longestCommonRun(shortName(normalize(aiName)), normalize(official).replaceAll("\\d", "")) >= 4;
-    }
-
-    /** 두 문자열에서 이어지는 공통 부분 중 가장 긴 길이 */
-    static int longestCommonRun(String a, String b) {
-        int best = 0;
-        int[] prev = new int[b.length() + 1];
-        for (int i = 1; i <= a.length(); i++) {
-            int[] cur = new int[b.length() + 1];
-            for (int j = 1; j <= b.length(); j++) {
-                if (a.charAt(i - 1) == b.charAt(j - 1)) {
-                    cur[j] = prev[j - 1] + 1;
-                    best = Math.max(best, cur[j]);
-                }
-            }
-            prev = cur;
-        }
-        return best;
-    }
-
-    /** 앞 2글자가 같은지 */
-    static boolean sameStart(String a, String b) {
-        String x = normalize(a), y = normalize(b);
-        return x.length() >= 2 && y.length() >= 2 && x.substring(0, 2).equals(y.substring(0, 2));
-    }
-
-    /** 정규화 후 같은 후보 (읽은 이름에 용량이 없으면 후보의 용량 부분은 빼고 비교) */
-    static String findSame(String aiName, List<String> candidates) {
-        String target = normalize(aiName);
-        return candidates.stream()
-                .filter(c -> base(target, c).equals(target))
-                .findFirst()
-                .orElse(null);
-    }
-
-    /**
-     * 글자 차이가 허용 범위 안인 후보 중 가장 가까운 것.
-     * 읽은 이름에 용량 숫자가 있으면 숫자가 같은 후보만 본다 (250mg vs 500mg 는 다른 약).
-     */
-    static String findClosest(String aiName, List<String> candidates) {
-        String target = normalize(aiName);
-        String targetDigits = digits(target);
-        int allowed = Math.max(1, target.length() / 5);
-
-        String best = null;
-        int bestDistance = Integer.MAX_VALUE;
-        for (String candidate : candidates) {
-            String c = base(target, candidate);
-            if (!targetDigits.isEmpty() && !digits(c).equals(targetDigits)) {
-                continue; // 용량이 다르면 다른 약
-            }
-            int d = distance(target, c);
-            if (d <= allowed && d < bestDistance) {
-                best = candidate;
-                bestDistance = d;
-            }
-        }
-        return best;
-    }
-
-    /** 비교 대상 후보 문자열: 읽은 이름에 숫자가 없으면 후보에서도 용량 이후를 뺀다 */
-    private static String base(String normalizedTarget, String candidate) {
-        String c = normalize(candidate);
-        return digits(normalizedTarget).isEmpty() ? shortName(c) : c;
     }
 
     /**

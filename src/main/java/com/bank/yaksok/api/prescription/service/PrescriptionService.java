@@ -74,7 +74,7 @@ public class PrescriptionService {
         var verifiedMedicines = cleaned.medicines().stream()
                 .map(m -> {
                     DrugNameVerifier.Result v = drugNameVerifier.verify(m.name(), m.ediCode());
-                    return m.withVerification(v.name(), v.verified(), v.originalName());
+                    return m.withVerification(v.name(), v.verified(), v.originalName(), v.suggestedName());
                 })
                 .toList();
         return new PrescriptionAnalyzeResponse(cleaned.prescriptionDate(), verifiedMedicines);
@@ -141,7 +141,7 @@ public class PrescriptionService {
                     throw aiUnavailable();
                 }
                 log.warn("Gemini 일시 오류({}, {}/{}): {}", model, i + 1, attempts, shortMessage(e));
-                lastFailure = aiBusy();
+                lastFailure = isQuotaExceeded(e) ? aiQuotaExceeded() : aiBusy();
             } catch (ResponseStatusException unreadable) {
                 log.warn("Gemini 응답을 읽지 못함({}, {}/{})", model, i + 1, attempts);
                 lastFailure = unreadable;
@@ -149,6 +149,11 @@ public class PrescriptionService {
         }
         log.error("Gemini 분석 최종 실패 (모델: {})", models);
         throw lastFailure;
+    }
+
+    /** 429: 이 키의 사용 한도(할당량) 초과 */
+    private boolean isQuotaExceeded(RestClientException e) {
+        return e instanceof HttpClientErrorException clientError && clientError.getStatusCode().value() == 429;
     }
 
     private boolean isModelNotFound(RestClientException e) {
@@ -215,6 +220,12 @@ public class PrescriptionService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "처방전을 읽지 못했습니다. 다시 촬영해 주세요.");
         }
+    }
+
+    /** 모든 모델이 사용 한도를 넘었을 때 */
+    private ResponseStatusException aiQuotaExceeded() {
+        return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "AI 사용 한도를 초과했습니다. 잠시 후 다시 시도하거나 약 정보를 직접 입력해 주세요.");
     }
 
     /** Gemini 가 붐비거나 응답이 늦을 때. 프론트는 이 문구를 그대로 보여주면 된다. */

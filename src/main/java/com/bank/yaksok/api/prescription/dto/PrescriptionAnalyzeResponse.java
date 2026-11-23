@@ -16,15 +16,16 @@ public record PrescriptionAnalyzeResponse(
             Integer timesPerDay,   // 하루 복용 횟수 (못 읽으면 null)
             Integer days,          // 총 처방일수 (못 읽으면 null)
             String ediCode,        // 처방전에 적힌 보험코드 9자리 (못 읽으면 null)
-            Boolean verified,      // 공공데이터에서 확인된 약이면 true, 확인 못 하면 false
-            String originalName    // AI 가 읽은 이름이 공식 품목명으로 바뀐 경우 원래 읽은 이름, 아니면 null
+            Boolean verified,      // 공공데이터로 같은 약임이 확인되면 true, 아니면 false (화면에서 '확인 필요' 표시)
+            String originalName,   // 한 글자 오인식을 교정한 경우 AI 가 원래 읽은 이름, 아니면 null
+            String suggestedName   // 확신할 수 없어 이름은 바꾸지 않았지만 공공데이터에서 찾은 후보 (verified=false 일 때 참고용)
     ) {
         public Medicine(String name, String dose, Integer timesPerDay, Integer days, String ediCode) {
-            this(name, dose, timesPerDay, days, ediCode, null, null);
+            this(name, dose, timesPerDay, days, ediCode, null, null, null);
         }
 
-        public Medicine withVerification(String verifiedName, boolean isVerified, String original) {
-            return new Medicine(verifiedName, dose, timesPerDay, days, ediCode, isVerified, original);
+        public Medicine withVerification(String verifiedName, boolean isVerified, String original, String suggested) {
+            return new Medicine(verifiedName, dose, timesPerDay, days, ediCode, isVerified, original, suggested);
         }
     }
 }
