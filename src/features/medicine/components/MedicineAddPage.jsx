@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import client from '../../../api/client'
 import styles from './MedicineAddPage.module.css'
-import { analyzePrescriptionMock, defaultTimes } from '../utils/prescription'
+import { analyzePrescription, defaultTimes } from '../utils/prescription'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -60,7 +60,7 @@ export default function MedicineAddPage() {
       setPhotoPreview(ev.target.result)
       setAnalyzing(true)
       try {
-        const result = await analyzePrescriptionMock(file)
+        const result = await analyzePrescription(file)
         setMeds(result.medicines.map(m =>
           makeMed(m.name, 'AI 인식 결과 · 처방전과 비교해 확인해주세요', m.timesPerDay)
         ))

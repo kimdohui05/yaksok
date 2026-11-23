@@ -1,28 +1,52 @@
 // 처방전 사진 → AI 분석 관련 유틸
-//
-// 지금(1단계)은 가짜 결과를 돌려준다.
-// 4단계에서 백엔드 API가 생기면 analyzePrescriptionMock 의 "안쪽"만 실제 호출로 바꾸면 된다.
-// 반환 형식은 그대로 유지할 것:
+import client from '../../../api/client'
+
+// 처방전 사진을 백엔드(Gemini)로 보내 분석 결과를 받는다.
+// 반환 형식:
 // {
-//   prescriptionDate: 'YYYY-MM-DD',
-//   medicines: [{ name, dose, timesPerDay, days }]
+//   prescriptionDate: 'YYYY-MM-DD' | null,
+//   medicines: [{ name, dose, timesPerDay, days, ediCode, verified, originalName }]
 // }
+// AI가 읽지 못한 값은 null 로 온다.
+export async function analyzePrescription(file) {
+  const small = await shrinkImage(file)
+  const formData = new FormData()
+  formData.append('image', small)
 
-const today = () => new Date().toISOString().split('T')[0]
+  const res = await client.post('/api/prescriptions/analyze', formData, {
+    timeout: 60000, // AI 분석은 오래 걸릴 수 있어서 기본 10초 대신 60초
+  })
+  return res.data
+}
 
-// _file: 4단계에서 실제 API로 보낼 사진 (지금은 사용 안 함)
-export function analyzePrescriptionMock(_file) {
+// 사진을 긴 쪽 최대 1600px, JPG로 줄인다. 실패하면 원본을 그대로 쓴다.
+// (큰 사진은 Gemini가 붐빌 때 503으로 잘 거절돼서 보내기 전에 줄임)
+function shrinkImage(file, maxSize = 1600, quality = 0.85) {
   return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        prescriptionDate: today(),
-        medicines: [
-          { name: '타이레놀정500mg', dose: '1정', timesPerDay: 3, days: 5 },
-          { name: '뮤코펙트정30mg', dose: '1정', timesPerDay: 3, days: 5 },
-          { name: '가스모틴정5mg', dose: '1정', timesPerDay: 2, days: 5 },
-        ],
-      })
-    }, 1500)
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+
+      canvas.toBlob((blob) => {
+        // 오히려 커지면 원본 사용
+        if (!blob || blob.size >= file.size) return resolve(file)
+        resolve(new File([blob], 'prescription.jpg', { type: 'image/jpeg' }))
+      }, 'image/jpeg', quality)
+    }
+
+    // 브라우저가 못 여는 사진은 원본 그대로
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(file)
+    }
+    img.src = url
   })
 }
 
