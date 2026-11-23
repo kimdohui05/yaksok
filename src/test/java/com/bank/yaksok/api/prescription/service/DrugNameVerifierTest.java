@@ -64,6 +64,34 @@ class DrugNameVerifierTest {
     }
 
     @Test
+    void 겹친_괄호도_모두_제거() {
+        assertEquals("에리우스정", DrugNameVerifier.displayName("에리우스정(데스로라타딘(미분화))"));
+        var r = DrugNameVerifier.resultFor("에리우스정", "에리우스정(데스로라타딘(미분화))");
+        assertEquals("에리우스정", r.name());
+        assertNull(r.originalName());
+    }
+
+    @Test
+    void 읽은_이름에_용량이_없으면_공식명_용량은_빼고_비교() {
+        assertEquals("폰탈캡슐250밀리그램(메페남산)",
+                DrugNameVerifier.findSame("폰탈캡슐", List.of("폰탈캡슐250밀리그램(메페남산)")));
+        var same = DrugNameVerifier.resultFor("폰탈캡슐", "폰탈캡슐250밀리그램(메페남산)");
+        assertEquals("폰탈캡슐", same.name());
+        assertNull(same.originalName());
+
+        var corrected = DrugNameVerifier.resultFor("폰탈한캡슐", "폰탈캡슐250밀리그램(메페남산)");
+        assertEquals("폰탈캡슐", corrected.name());
+        assertEquals("폰탈한캡슐", corrected.originalName());
+    }
+
+    @Test
+    void 보험코드로_찾으면_공식명으로_교정() {
+        var r = DrugNameVerifier.resultForExact("써스본이알서방정", "써스펜8시간이알서방정650밀리그램(아세트아미노펜)");
+        assertEquals("써스펜8시간이알서방정650밀리그램", r.name());
+        assertEquals("써스본이알서방정", r.originalName());
+    }
+
+    @Test
     void 편집거리() {
         assertEquals(1, DrugNameVerifier.distance("폰탈한캡슐", "폰탈캡슐"));
         assertEquals(0, DrugNameVerifier.distance("abc", "abc"));

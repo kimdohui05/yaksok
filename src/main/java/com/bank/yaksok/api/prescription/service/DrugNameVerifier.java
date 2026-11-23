@@ -42,7 +42,7 @@ public class DrugNameVerifier {
                 List<String> byCode = activeNames(drugPermitApiClient.searchByEdiCode(ediCode));
                 for (String official : byCode) {
                     if (sameStart(aiName, official)) {
-                        return resultFor(aiName, official);
+                        return resultForExact(aiName, official);
                     }
                 }
             } catch (RuntimeException e) {
@@ -113,19 +113,37 @@ public class DrugNameVerifier {
     // ───── 아래는 외부 호출 없는 순수 로직 (단위 테스트 대상) ─────
 
     /**
-     * 공식명과 사실상 같으면 AI 가 읽은 이름을 그대로 쓰고(verified),
+     * 보험코드로 찾은 경우: 정확한 품목이므로, 같으면 읽은 이름 유지,
      * 다르면 공식명(괄호 성분명 제외)으로 교정하고 원래 이름을 남긴다.
      */
-    static Result resultFor(String aiName, String official) {
+    static Result resultForExact(String aiName, String official) {
         if (normalize(official).equals(normalize(aiName))) {
             return new Result(aiName, true, null);
         }
         return new Result(displayName(official), true, aiName);
     }
 
-    /** "폰탈캡슐(메페남산)" → "폰탈캡슐" (화면·저장용, 성분명 괄호 제거) */
+    /**
+     * 이름 검색으로 찾은 경우.
+     * - 사실상 같으면 읽은 이름 그대로 (verified)
+     * - 읽은 이름에 용량이 없으면 공식명의 용량은 모르는 것으로 보고, 용량 앞부분 이름으로만 교정
+     *   (예: "폰탈한캡슐" + "폰탈캡슐250밀리그램(메페남산)" → "폰탈캡슐")
+     * - 읽은 이름에 용량이 있으면 공식명(괄호 제외)으로 교정
+     */
+    static Result resultFor(String aiName, String official) {
+        String target = normalize(aiName);
+        if (base(target, official).equals(target)) {
+            return new Result(aiName, true, null);
+        }
+        String corrected = digits(target).isEmpty()
+                ? shortName(displayName(official))
+                : displayName(official);
+        return new Result(corrected, true, aiName);
+    }
+
+    /** "폰탈캡슐(메페남산)" → "폰탈캡슐" (화면·저장용, 괄호는 겹쳐 있어도 모두 제거) */
     static String displayName(String official) {
-        return official.replaceAll("\\([^)]*\\)", "").trim();
+        return removeParens(official).trim();
     }
 
     /** 앞 2글자가 같은지 (보험코드를 잘못 읽어 엉뚱한 약이 나오는 경우 걸러내기) */
@@ -134,16 +152,19 @@ public class DrugNameVerifier {
         return x.length() >= 2 && y.length() >= 2 && x.substring(0, 2).equals(y.substring(0, 2));
     }
 
-    /** 정규화 후 완전히 같은 후보 */
+    /** 정규화 후 같은 후보 (읽은 이름에 용량이 없으면 후보의 용량 부분은 빼고 비교) */
     static String findSame(String aiName, List<String> candidates) {
         String target = normalize(aiName);
         return candidates.stream()
-                .filter(c -> normalize(c).equals(target))
+                .filter(c -> base(target, c).equals(target))
                 .findFirst()
                 .orElse(null);
     }
 
-    /** 용량 숫자가 같고, 글자 차이가 허용 범위 안인 후보 중 가장 가까운 것 */
+    /**
+     * 글자 차이가 허용 범위 안인 후보 중 가장 가까운 것.
+     * 읽은 이름에 용량 숫자가 있으면 숫자가 같은 후보만 본다 (250mg vs 500mg 는 다른 약).
+     */
     static String findClosest(String aiName, List<String> candidates) {
         String target = normalize(aiName);
         String targetDigits = digits(target);
@@ -152,8 +173,8 @@ public class DrugNameVerifier {
         String best = null;
         int bestDistance = Integer.MAX_VALUE;
         for (String candidate : candidates) {
-            String c = normalize(candidate);
-            if (!digits(c).equals(targetDigits)) {
+            String c = base(target, candidate);
+            if (!targetDigits.isEmpty() && !digits(c).equals(targetDigits)) {
                 continue; // 용량이 다르면 다른 약
             }
             int d = distance(target, c);
@@ -165,17 +186,33 @@ public class DrugNameVerifier {
         return best;
     }
 
+    /** 비교 대상 후보 문자열: 읽은 이름에 숫자가 없으면 후보에서도 용량 이후를 뺀다 */
+    private static String base(String normalizedTarget, String candidate) {
+        String c = normalize(candidate);
+        return digits(normalizedTarget).isEmpty() ? shortName(c) : c;
+    }
+
     /**
      * 비교용 정규화: 괄호 안 내용·공백 제거, 소문자, 단위 표기 통일
      * 예: "지스로맥스정250밀리그램(아지트로마이신수화물)" → "지스로맥스정250mg"
      */
     static String normalize(String name) {
-        return name.replaceAll("\\([^)]*\\)", "")
+        return removeParens(name)
                 .replaceAll("\\s+", "")
                 .toLowerCase()
                 .replaceAll("밀리그램|밀리그람", "mg")
                 .replaceAll("마이크로그램|마이크로그람", "mcg")
                 .replaceAll("밀리리터", "ml");
+    }
+
+    /** 괄호를 안쪽부터 반복해서 지우고, 짝이 안 맞아 남은 괄호 문자도 지운다 */
+    static String removeParens(String s) {
+        String prev;
+        do {
+            prev = s;
+            s = s.replaceAll("\\([^()]*\\)", "");
+        } while (!s.equals(prev));
+        return s.replaceAll("[()]", "");
     }
 
     /** "타이레놀정500mg" → "타이레놀정" */
