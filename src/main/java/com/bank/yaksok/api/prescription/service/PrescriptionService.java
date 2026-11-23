@@ -34,6 +34,7 @@ public class PrescriptionService {
 
     private final GeminiApiClient geminiApiClient;
     private final PrescriptionResultCleaner resultCleaner;
+    private final DrugNameVerifier drugNameVerifier;
     private final ObjectMapper objectMapper;
 
     public PrescriptionAnalyzeResponse analyze(MultipartFile image) {
@@ -52,13 +53,21 @@ public class PrescriptionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사진을 읽지 못했습니다. 다시 촬영해 주세요.");
         }
 
-        PrescriptionAnalyzeResponse result = resultCleaner.clean(callGeminiWithOneRetry(bytes, mimeType));
+        PrescriptionAnalyzeResponse cleaned = resultCleaner.clean(callGeminiWithOneRetry(bytes, mimeType));
 
-        if (result.medicines().isEmpty()) {
+        if (cleaned.medicines().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,
                     "처방전에서 약 정보를 찾지 못했습니다. 처방전 전체가 잘 보이게 다시 촬영해 주세요.");
         }
-        return result;
+
+        // AI 가 읽은 약 이름을 기존 e약은요 조회로 검증 (DurService.getDrugInfo 재사용)
+        var verifiedMedicines = cleaned.medicines().stream()
+                .map(m -> {
+                    DrugNameVerifier.Result v = drugNameVerifier.verify(m.name());
+                    return m.withVerification(v.name(), v.verified(), v.originalName());
+                })
+                .toList();
+        return new PrescriptionAnalyzeResponse(cleaned.prescriptionDate(), verifiedMedicines);
     }
 
     /** 파일 형식·크기 검사. 통과하면 Gemini 에 보낼 MIME 타입을 돌려준다. */
