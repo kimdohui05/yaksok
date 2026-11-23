@@ -92,6 +92,14 @@ class DrugNameVerifierTest {
     }
 
     @Test
+    void 보험코드_결과는_이름이_어느정도_겹치면_인정() {
+        assertEquals(true, DrugNameVerifier.plausibleSameDrug(
+                "씨스본이알서방정", "써스펜8시간이알서방정650밀리그램(아세트아미노펜)"));
+        assertEquals(true, DrugNameVerifier.plausibleSameDrug("폰탈한캡슐", "폰탈캡슐(메페남산)"));
+        assertEquals(false, DrugNameVerifier.plausibleSameDrug("에리우스정", "타이레놀정500밀리그람(아세트아미노펜)"));
+    }
+
+    @Test
     void 편집거리() {
         assertEquals(1, DrugNameVerifier.distance("폰탈한캡슐", "폰탈캡슐"));
         assertEquals(0, DrugNameVerifier.distance("abc", "abc"));

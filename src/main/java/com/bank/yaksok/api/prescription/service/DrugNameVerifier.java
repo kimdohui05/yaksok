@@ -17,7 +17,8 @@ import java.util.Set;
  * AI 가 읽은 약 이름을 공공데이터로 확인한다.
  *
  * 1) 보험코드(처방전 약 이름 앞 9자리)로 허가정보 API 조회 → 가장 정확
- *    단, 코드를 잘못 읽었을 수도 있으니 이름 앞부분이 비슷할 때만 인정
+ *    단, 코드를 잘못 읽었을 수도 있으니 이름이 어느 정도 겹칠 때만 인정
+ *    (앞 2글자가 같거나, 4글자 이상 이어지는 공통 부분이 있을 때)
  * 2) 이름으로 허가정보 API 조회 (그대로 → 용량 이후 제거 → 앞 2글자)
  *    전문의약품까지 포함되어 처방전 약을 찾을 수 있다
  * 3) 마지막으로 기존 e약은요 조회(DurService.getDrugInfo, /api/dur/info) — 일반의약품 보조
@@ -41,7 +42,7 @@ public class DrugNameVerifier {
             try {
                 List<String> byCode = activeNames(drugPermitApiClient.searchByEdiCode(ediCode));
                 for (String official : byCode) {
-                    if (sameStart(aiName, official)) {
+                    if (plausibleSameDrug(aiName, official)) {
                         return resultForExact(aiName, official);
                     }
                 }
@@ -146,7 +147,34 @@ public class DrugNameVerifier {
         return removeParens(official).trim();
     }
 
-    /** 앞 2글자가 같은지 (보험코드를 잘못 읽어 엉뚱한 약이 나오는 경우 걸러내기) */
+    /**
+     * 보험코드로 찾은 약이 AI 가 읽은 약과 같은 약으로 볼 만한지.
+     * 코드를 잘못 읽어 엉뚱한 약이 나오는 경우를 걸러내되,
+     * 이름 앞글자만 잘못 읽은 경우(씨스본 ↔ 써스펜..이알서방정)는 통과시킨다.
+     */
+    static boolean plausibleSameDrug(String aiName, String official) {
+        return sameStart(aiName, official)
+                || longestCommonRun(shortName(normalize(aiName)), normalize(official).replaceAll("\\d", "")) >= 4;
+    }
+
+    /** 두 문자열에서 이어지는 공통 부분 중 가장 긴 길이 */
+    static int longestCommonRun(String a, String b) {
+        int best = 0;
+        int[] prev = new int[b.length() + 1];
+        for (int i = 1; i <= a.length(); i++) {
+            int[] cur = new int[b.length() + 1];
+            for (int j = 1; j <= b.length(); j++) {
+                if (a.charAt(i - 1) == b.charAt(j - 1)) {
+                    cur[j] = prev[j - 1] + 1;
+                    best = Math.max(best, cur[j]);
+                }
+            }
+            prev = cur;
+        }
+        return best;
+    }
+
+    /** 앞 2글자가 같은지 */
     static boolean sameStart(String a, String b) {
         String x = normalize(a), y = normalize(b);
         return x.length() >= 2 && y.length() >= 2 && x.substring(0, 2).equals(y.substring(0, 2));
