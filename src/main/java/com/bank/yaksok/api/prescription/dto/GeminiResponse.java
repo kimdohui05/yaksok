@@ -17,6 +17,12 @@ public record GeminiResponse(List<Candidate> candidates) {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Part(String text) {}
 
+    /** 첫 번째 후보가 끝난 이유 (STOP 이 정상, MAX_TOKENS 는 길이 제한으로 잘림) */
+    public String firstFinishReason() {
+        if (candidates == null || candidates.isEmpty() || candidates.get(0) == null) return null;
+        return candidates.get(0).finishReason();
+    }
+
     /** 첫 번째 후보의 첫 번째 텍스트. 없으면 null (안전 필터 차단, 빈 응답 등). */
     public String firstText() {
         if (candidates == null || candidates.isEmpty()) return null;

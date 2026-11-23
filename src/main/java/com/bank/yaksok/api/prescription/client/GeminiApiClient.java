@@ -1,6 +1,7 @@
 package com.bank.yaksok.api.prescription.client;
 
 import com.bank.yaksok.api.prescription.dto.GeminiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -17,6 +18,7 @@ import java.util.Map;
  * Gemini generateContent 호출.
  * API 키는 코드/properties 에 직접 쓰지 않고 환경변수 GEMINI_API_KEY 로 받는다.
  */
+@Slf4j
 @Component
 public class GeminiApiClient {
 
@@ -140,8 +142,9 @@ public class GeminiApiClient {
                 "generationConfig", Map.of(
                         "responseMimeType", "application/json",
                         "responseSchema", RESPONSE_SCHEMA,
-                        // 출력 길이 상한: 모델이 같은 글자를 끝없이 반복하는 경우를 끊는다
-                        "maxOutputTokens", 2048
+                        // 출력 길이 상한: 모델이 같은 글자를 끝없이 반복하는 경우를 끊는다.
+                        // 약이 많은 처방전이나 내부 추론을 쓰는 모델은 2048 로는 잘려서 8192 로 둔다.
+                        "maxOutputTokens", 8192
                         // temperature 는 지정하지 않고 모델 기본값을 쓴다 (0 으로 두면 반복 출력이 생길 수 있음)
                 )
         );
@@ -154,6 +157,14 @@ public class GeminiApiClient {
                 .retrieve()
                 .body(GeminiResponse.class);
 
-        return response == null ? null : response.firstText();
+        if (response == null) {
+            return null;
+        }
+        String finishReason = response.firstFinishReason();
+        if (finishReason != null && !"STOP".equals(finishReason)) {
+            // MAX_TOKENS: 길이 제한으로 잘림, SAFETY: 안전 필터 차단 등
+            log.warn("Gemini 응답이 정상 종료되지 않음: model={}, finishReason={}", modelName, finishReason);
+        }
+        return response.firstText();
     }
 }
