@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -106,9 +107,19 @@ public class GeminiApiClient {
         return model;
     }
 
-    /** 재시도에 쓸 모델. 예비 모델이 설정돼 있으면 그것, 없으면 기본 모델 */
-    public String retryModel() {
-        return (fallbackModel == null || fallbackModel.isBlank()) ? model : fallbackModel;
+    /**
+     * 시도할 모델 순서: 기본 모델 → 예비 모델들(쉼표로 여러 개 가능, 중복 제거).
+     * 예: GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite,gemini-3.6-flash
+     */
+    public List<String> models() {
+        LinkedHashSet<String> ordered = new LinkedHashSet<>();
+        ordered.add(model);
+        if (fallbackModel != null) {
+            for (String m : fallbackModel.split(",")) {
+                if (!m.isBlank()) ordered.add(m.trim());
+            }
+        }
+        return List.copyOf(ordered);
     }
 
     /**

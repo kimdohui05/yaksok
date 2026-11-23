@@ -5,6 +5,7 @@ import com.bank.yaksok.api.prescription.dto.GeminiPrescriptionResult;
 import com.bank.yaksok.api.prescription.dto.PrescriptionAnalyzeResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -16,6 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -37,6 +40,13 @@ public class PrescriptionService {
     private final DrugNameVerifier drugNameVerifier;
     private final ObjectMapper objectMapper;
 
+    /** 최대 시도 횟수 (환경변수 GEMINI_MAX_ATTEMPTS, 기본 4) */
+    @Value("${gemini.max-attempts:4}")
+    private int maxAttempts;
+
+    /** 재시도를 포함한 전체 대기 한도 */
+    private static final Duration TOTAL_BUDGET = Duration.ofSeconds(45);
+
     public PrescriptionAnalyzeResponse analyze(MultipartFile image) {
         String mimeType = validate(image);
 
@@ -53,7 +63,7 @@ public class PrescriptionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사진을 읽지 못했습니다. 다시 촬영해 주세요.");
         }
 
-        PrescriptionAnalyzeResponse cleaned = resultCleaner.clean(callGeminiWithOneRetry(bytes, mimeType));
+        PrescriptionAnalyzeResponse cleaned = resultCleaner.clean(callGeminiWithRetry(bytes, mimeType));
 
         if (cleaned.medicines().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,
@@ -95,37 +105,54 @@ public class PrescriptionService {
 
     /**
      * 분석은 조회성 요청이라 다시 보내도 부작용이 없다.
-     * 일시적 장애(서버 5xx, 사용량 초과 429, 시간 초과)일 때만
-     * 잠깐 기다렸다가 한 번 재시도한다. 예비 모델이 설정돼 있으면 재시도는 예비 모델로 보낸다.
+     * 일시적 장애(5xx, 429, 시간 초과, 깨진 응답)면 모델을 바꿔 가며 최대 maxAttempts 번 시도한다.
+     * - 모델 순서: 기본 → 예비1 → 예비2 ... → 다시 기본 (순환)
+     * - 시도 사이 대기: 1초, 2초, 4초, 4초 ...
+     * - 전체 시간이 TOTAL_BUDGET 을 넘으면 더 시도하지 않는다 (사용자가 너무 오래 기다리지 않게)
+     * - 모델명이 틀려 404 가 나면 그 모델만 건너뛴다
      */
-    private GeminiPrescriptionResult callGeminiWithOneRetry(byte[] bytes, String mimeType) {
-        String primary = geminiApiClient.primaryModel();
-        try {
-            GeminiPrescriptionResult result = parse(geminiApiClient.analyzePrescription(bytes, mimeType, primary));
-            log.info("Gemini 분석 성공({})", primary);
-            return result;
-        } catch (RestClientException e) {
-            if (!isTemporary(e)) {
-                logRejected(e);
-                throw aiUnavailable();
-            }
-            log.warn("Gemini 일시 오류({}), 2초 후 1회 재시도: {}", primary, shortMessage(e));
-        } catch (ResponseStatusException unreadable) {
-            // 응답은 왔지만 JSON 이 깨진 경우도 한 번은 다시 시도한다
-            log.warn("Gemini 응답을 읽지 못함({}), 2초 후 1회 재시도", primary);
-        }
+    private GeminiPrescriptionResult callGeminiWithRetry(byte[] bytes, String mimeType) {
+        List<String> models = geminiApiClient.models();
+        int attempts = Math.max(1, maxAttempts);
+        long startedAt = System.nanoTime();
+        ResponseStatusException lastFailure = aiBusy();
 
-        sleepBeforeRetry();
-        String retry = geminiApiClient.retryModel();
-        try {
-            GeminiPrescriptionResult result = parse(geminiApiClient.analyzePrescription(bytes, mimeType, retry));
-            log.info("Gemini 분석 성공({}, 재시도)", retry);
-            return result;
-        } catch (RestClientException e) {
-            log.error("Gemini 재시도 실패({}): {}", retry, shortMessage(e));
-            throw isTemporary(e) ? aiBusy() : aiUnavailable();
+        for (int i = 0; i < attempts; i++) {
+            if (i > 0) {
+                if (Duration.ofNanos(System.nanoTime() - startedAt).compareTo(TOTAL_BUDGET) > 0) {
+                    log.warn("Gemini 재시도 시간 초과로 중단 ({}번 시도)", i);
+                    break;
+                }
+                sleepBeforeRetry(i);
+            }
+            String model = models.get(i % models.size());
+            try {
+                GeminiPrescriptionResult result = parse(geminiApiClient.analyzePrescription(bytes, mimeType, model));
+                log.info("Gemini 분석 성공({}, {}/{}번째 시도)", model, i + 1, attempts);
+                return result;
+            } catch (RestClientException e) {
+                if (isModelNotFound(e)) {
+                    log.warn("Gemini 모델을 찾을 수 없음({}), 다음 모델로", model);
+                    lastFailure = aiUnavailable();
+                    continue;
+                }
+                if (!isTemporary(e)) {
+                    logRejected(e);
+                    throw aiUnavailable();
+                }
+                log.warn("Gemini 일시 오류({}, {}/{}): {}", model, i + 1, attempts, shortMessage(e));
+                lastFailure = aiBusy();
+            } catch (ResponseStatusException unreadable) {
+                log.warn("Gemini 응답을 읽지 못함({}, {}/{})", model, i + 1, attempts);
+                lastFailure = unreadable;
+            }
         }
-        // parse 실패(ResponseStatusException)는 그대로 "처방전을 읽지 못했습니다" 로 나간다
+        log.error("Gemini 분석 최종 실패 (모델: {})", models);
+        throw lastFailure;
+    }
+
+    private boolean isModelNotFound(RestClientException e) {
+        return e instanceof HttpClientErrorException clientError && clientError.getStatusCode().value() == 404;
     }
 
     /** 다시 시도하면 될 수도 있는 오류인지 */
@@ -157,9 +184,11 @@ public class PrescriptionService {
         }
     }
 
-    private void sleepBeforeRetry() {
+    /** 1초, 2초, 4초, 4초 ... */
+    private void sleepBeforeRetry(int retryCount) {
+        long millis = Math.min(4000L, 1000L << Math.min(retryCount - 1, 2));
         try {
-            Thread.sleep(2000);
+            Thread.sleep(millis);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw aiUnavailable();
