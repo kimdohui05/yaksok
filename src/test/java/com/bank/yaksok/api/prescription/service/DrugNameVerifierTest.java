@@ -38,6 +38,32 @@ class DrugNameVerifierTest {
     }
 
     @Test
+    void 공식명의_밀리그램_표기와_처방전의_mg는_같게_본다() {
+        assertEquals(DrugNameVerifier.normalize("지스로맥스정250mg"),
+                DrugNameVerifier.normalize("지스로맥스정250밀리그램(아지트로마이신수화물)"));
+        assertEquals("지스로맥스정250밀리그램(아지트로마이신수화물)",
+                DrugNameVerifier.findSame("지스로맥스정250mg",
+                        List.of("지스로맥스정250밀리그램(아지트로마이신수화물)")));
+    }
+
+    @Test
+    void 같은_약이면_읽은_이름_유지_교정되면_원래_이름_남김() {
+        var same = DrugNameVerifier.resultFor("폰탈캡슐", "폰탈캡슐(메페남산)");
+        assertEquals("폰탈캡슐", same.name());
+        assertNull(same.originalName());
+
+        var corrected = DrugNameVerifier.resultFor("폰탈한캡슐", "폰탈캡슐(메페남산)");
+        assertEquals("폰탈캡슐", corrected.name());
+        assertEquals("폰탈한캡슐", corrected.originalName());
+    }
+
+    @Test
+    void 보험코드_결과는_이름_앞부분이_같을_때만_인정() {
+        assertEquals(true, DrugNameVerifier.sameStart("폰탈한캡슐", "폰탈캡슐(메페남산)"));
+        assertEquals(false, DrugNameVerifier.sameStart("에리우스정", "타이레놀정500밀리그람"));
+    }
+
+    @Test
     void 편집거리() {
         assertEquals(1, DrugNameVerifier.distance("폰탈한캡슐", "폰탈캡슐"));
         assertEquals(0, DrugNameVerifier.distance("abc", "abc"));

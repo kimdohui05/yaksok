@@ -45,8 +45,19 @@ public class PrescriptionResultCleaner {
                 name,
                 blankToNull(item.dose()),
                 inRange(item.timesPerDay(), MAX_TIMES_PER_DAY),
-                inRange(item.days(), MAX_DAYS)
+                inRange(item.days(), MAX_DAYS),
+                cleanEdiCode(item.ediCode())
         );
+    }
+
+    /** 보험코드는 숫자 9자리만 인정 (공백·하이픈은 제거) */
+    private String cleanEdiCode(String code) {
+        String value = blankToNull(code);
+        if (value == null) {
+            return null;
+        }
+        String digitsOnly = value.replaceAll("[\\s-]", "");
+        return digitsOnly.matches("\\d{9}") ? digitsOnly : null;
     }
 
     /** yyyy-MM-dd 로 실제 존재하는 날짜만 통과 */

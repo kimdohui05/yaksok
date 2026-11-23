@@ -1,6 +1,8 @@
 package com.bank.yaksok.api.prescription.service;
 
+import com.bank.yaksok.api.dur.client.DrugPermitApiClient;
 import com.bank.yaksok.api.dur.dto.DrugInfoResponse;
+import com.bank.yaksok.api.dur.dto.DrugPermitResponse;
 import com.bank.yaksok.api.dur.service.DurService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,67 +14,125 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * AI 가 읽은 약 이름을 기존 e약은요 조회(DurService.getDrugInfo, /api/dur/info 와 같은 로직)로 확인한다.
+ * AI 가 읽은 약 이름을 공공데이터로 확인한다.
  *
- * 1) 읽은 이름 그대로 검색
- * 2) 없으면 용량·괄호 이후를 뺀 이름으로 검색 (프론트 MedicineListPage 의 재검색 규칙과 같음)
- * 3) 그래도 없으면 앞 2글자로 검색해서 후보를 받은 뒤, 글자 차이가 아주 작은 것만 인정
- *    (예: AI 가 "폰탈한캡슐"로 잘못 읽음 → "폰탈캡슐")
+ * 1) 보험코드(처방전 약 이름 앞 9자리)로 허가정보 API 조회 → 가장 정확
+ *    단, 코드를 잘못 읽었을 수도 있으니 이름 앞부분이 비슷할 때만 인정
+ * 2) 이름으로 허가정보 API 조회 (그대로 → 용량 이후 제거 → 앞 2글자)
+ *    전문의약품까지 포함되어 처방전 약을 찾을 수 있다
+ * 3) 마지막으로 기존 e약은요 조회(DurService.getDrugInfo, /api/dur/info) — 일반의약품 보조
  *
  * 용량 숫자가 다르면(250mg vs 500mg) 다른 약일 수 있으므로 절대 바꾸지 않는다.
- * 확인이 안 되면 이름은 그대로 두고 verified=false 로 돌려준다 (사용자가 화면에서 직접 확인).
+ * 확인이 안 되면 이름은 그대로 두고 verified=false (사용자가 화면에서 직접 확인).
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DrugNameVerifier {
 
+    private final DrugPermitApiClient drugPermitApiClient;
     private final DurService durService;
 
     public record Result(String name, boolean verified, String originalName) {}
 
-    public Result verify(String aiName) {
-        try {
-            // 1) 그대로
-            List<String> exactCandidates = search(aiName);
-            String exact = findSame(aiName, exactCandidates);
-            if (exact != null) {
-                return new Result(exact, true, null);
+    public Result verify(String aiName, String ediCode) {
+        // 1) 보험코드
+        if (ediCode != null) {
+            try {
+                List<String> byCode = activeNames(drugPermitApiClient.searchByEdiCode(ediCode));
+                for (String official : byCode) {
+                    if (sameStart(aiName, official)) {
+                        return resultFor(aiName, official);
+                    }
+                }
+            } catch (RuntimeException e) {
+                log.warn("보험코드 조회 실패, 이름으로 계속: code={}, reason={}", ediCode, e.getMessage());
             }
-
-            // 2) 용량·괄호 이후 제거
-            Set<String> candidates = new LinkedHashSet<>(exactCandidates);
-            String shortName = shortName(aiName);
-            if (!shortName.equals(aiName) && shortName.length() >= 2) {
-                candidates.addAll(search(shortName));
-            }
-            // 3) 앞 2글자 (오인식 대비)
-            if (aiName.length() >= 3) {
-                candidates.addAll(search(aiName.substring(0, 2)));
-            }
-
-            String closest = findClosest(aiName, new ArrayList<>(candidates));
-            if (closest != null) {
-                boolean changed = !normalize(closest).equals(normalize(aiName));
-                return new Result(closest, true, changed ? aiName : null);
-            }
-            return new Result(aiName, false, null);
-
-        } catch (RuntimeException e) {
-            // 공공 API 장애 등: 검증만 건너뛰고 분석 결과는 그대로 돌려준다
-            log.warn("약 이름 검증 실패, 건너뜀: name={}, reason={}", aiName, e.getMessage());
-            return new Result(aiName, false, null);
         }
+
+        // 2) 허가정보 API 이름 검색
+        try {
+            Result byPermit = matchAmong(aiName, this::permitNames);
+            if (byPermit != null) return byPermit;
+        } catch (RuntimeException e) {
+            log.warn("허가정보 이름 조회 실패: name={}, reason={}", aiName, e.getMessage());
+        }
+
+        // 3) 기존 e약은요 조회
+        try {
+            Result byEasy = matchAmong(aiName, this::easyDrugNames);
+            if (byEasy != null) return byEasy;
+        } catch (RuntimeException e) {
+            log.warn("e약은요 조회 실패: name={}, reason={}", aiName, e.getMessage());
+        }
+
+        return new Result(aiName, false, null);
     }
 
-    private List<String> search(String keyword) {
+    private interface Searcher {
+        List<String> search(String keyword);
+    }
+
+    /** 그대로 → 용량 이후 제거 → 앞 2글자 순으로 후보를 모아 비교 */
+    private Result matchAmong(String aiName, Searcher searcher) {
+        List<String> first = searcher.search(aiName);
+        String same = findSame(aiName, first);
+        if (same != null) return resultFor(aiName, same);
+
+        Set<String> candidates = new LinkedHashSet<>(first);
+        String shortName = shortName(aiName);
+        if (!shortName.equals(aiName) && shortName.length() >= 2) {
+            candidates.addAll(searcher.search(shortName));
+        }
+        if (aiName.length() >= 3) {
+            candidates.addAll(searcher.search(aiName.substring(0, 2)));
+        }
+        String closest = findClosest(aiName, new ArrayList<>(candidates));
+        return closest == null ? null : resultFor(aiName, closest);
+    }
+
+    private List<String> permitNames(String keyword) {
+        return activeNames(drugPermitApiClient.searchByName(keyword));
+    }
+
+    private List<String> easyDrugNames(String keyword) {
         return durService.getDrugInfo(keyword).stream()
                 .map(DrugInfoResponse.Summary::itemName)
                 .filter(n -> n != null && !n.isBlank())
                 .toList();
     }
 
+    private static List<String> activeNames(List<DrugPermitResponse.Item> items) {
+        return items.stream()
+                .filter(DrugPermitResponse.Item::isActive)
+                .map(DrugPermitResponse.Item::itemName)
+                .filter(n -> n != null && !n.isBlank())
+                .toList();
+    }
+
     // ───── 아래는 외부 호출 없는 순수 로직 (단위 테스트 대상) ─────
+
+    /**
+     * 공식명과 사실상 같으면 AI 가 읽은 이름을 그대로 쓰고(verified),
+     * 다르면 공식명(괄호 성분명 제외)으로 교정하고 원래 이름을 남긴다.
+     */
+    static Result resultFor(String aiName, String official) {
+        if (normalize(official).equals(normalize(aiName))) {
+            return new Result(aiName, true, null);
+        }
+        return new Result(displayName(official), true, aiName);
+    }
+
+    /** "폰탈캡슐(메페남산)" → "폰탈캡슐" (화면·저장용, 성분명 괄호 제거) */
+    static String displayName(String official) {
+        return official.replaceAll("\\([^)]*\\)", "").trim();
+    }
+
+    /** 앞 2글자가 같은지 (보험코드를 잘못 읽어 엉뚱한 약이 나오는 경우 걸러내기) */
+    static boolean sameStart(String a, String b) {
+        String x = normalize(a), y = normalize(b);
+        return x.length() >= 2 && y.length() >= 2 && x.substring(0, 2).equals(y.substring(0, 2));
+    }
 
     /** 정규화 후 완전히 같은 후보 */
     static String findSame(String aiName, List<String> candidates) {
@@ -105,11 +165,17 @@ public class DrugNameVerifier {
         return best;
     }
 
-    /** 공백·괄호 안 내용 제거, 소문자 (예: "폰탈캡슐(메페남산)" → "폰탈캡슐") */
+    /**
+     * 비교용 정규화: 괄호 안 내용·공백 제거, 소문자, 단위 표기 통일
+     * 예: "지스로맥스정250밀리그램(아지트로마이신수화물)" → "지스로맥스정250mg"
+     */
     static String normalize(String name) {
         return name.replaceAll("\\([^)]*\\)", "")
                 .replaceAll("\\s+", "")
-                .toLowerCase();
+                .toLowerCase()
+                .replaceAll("밀리그램|밀리그람", "mg")
+                .replaceAll("마이크로그램|마이크로그람", "mcg")
+                .replaceAll("밀리리터", "ml");
     }
 
     /** "타이레놀정500mg" → "타이레놀정" */

@@ -60,10 +60,10 @@ public class PrescriptionService {
                     "처방전에서 약 정보를 찾지 못했습니다. 처방전 전체가 잘 보이게 다시 촬영해 주세요.");
         }
 
-        // AI 가 읽은 약 이름을 기존 e약은요 조회로 검증 (DurService.getDrugInfo 재사용)
+        // AI 가 읽은 약 이름을 공공데이터로 검증 (보험코드 → 허가정보 → e약은요)
         var verifiedMedicines = cleaned.medicines().stream()
                 .map(m -> {
-                    DrugNameVerifier.Result v = drugNameVerifier.verify(m.name());
+                    DrugNameVerifier.Result v = drugNameVerifier.verify(m.name(), m.ediCode());
                     return m.withVerification(v.name(), v.verified(), v.originalName());
                 })
                 .toList();

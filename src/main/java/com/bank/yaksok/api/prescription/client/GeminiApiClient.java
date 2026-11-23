@@ -26,7 +26,7 @@ public class GeminiApiClient {
             [한국 처방전 표 구조]
             약 목록 표는 보통 아래 순서의 칸으로 되어 있다. 한 줄이 약 하나다.
               처방 의약품의 명칭 | 1회 투약량 | 1일 투여횟수 | 총 투약일수 | 용법
-            - 약 이름 앞의 9자리 숫자(보험 코드, 예: 648900880)는 이름이 아니므로 빼라.
+            - 약 이름 앞의 9자리 숫자(보험 코드, 예: 648900880)는 이름에서 빼고 ediCode 에 따로 넣어라.
             - 이름 뒤 괄호 표기 (내복), (외용) 등은 빼라.
             - 숫자 세 개는 반드시 위 칸 순서대로 1회 투약량, 1일 투여횟수, 총 투약일수에 대응시켜라.
               예: "지스로맥스정250mg  2  1  3" → dose "2정", timesPerDay 1, days 3
@@ -43,6 +43,7 @@ public class GeminiApiClient {
                 제형을 알 수 없으면 숫자만 문자열로. 칸이 비어 있으면 null
               - timesPerDay: 1일 투여횟수 (정수). 없으면 null
               - days: 총 투약일수 (정수). 없으면 null
+              - ediCode: 약 이름 앞의 보험 코드 9자리 숫자 (문자열). 한 자리라도 확실하지 않으면 null
 
             환자 이름, 주민등록번호, 주소, 병원명, 의사 이름 같은 개인정보는 절대 출력하지 마라.
             약이 하나도 보이지 않으면 medicines 를 빈 배열로 둬라.
@@ -61,7 +62,8 @@ public class GeminiApiClient {
                                             "name", Map.of("type", "STRING"),
                                             "dose", Map.of("type", "STRING", "nullable", true),
                                             "timesPerDay", Map.of("type", "INTEGER", "nullable", true),
-                                            "days", Map.of("type", "INTEGER", "nullable", true)
+                                            "days", Map.of("type", "INTEGER", "nullable", true),
+                                            "ediCode", Map.of("type", "STRING", "nullable", true)
                                     ),
                                     "required", List.of("name")
                             )

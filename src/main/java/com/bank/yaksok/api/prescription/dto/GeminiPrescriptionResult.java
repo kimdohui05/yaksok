@@ -18,6 +18,7 @@ public record GeminiPrescriptionResult(
             String name,
             String dose,
             Integer timesPerDay,
-            Integer days
+            Integer days,
+            String ediCode
     ) {}
 }

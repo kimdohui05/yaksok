@@ -18,7 +18,7 @@ class PrescriptionResultCleanerTest {
     @Test
     void 정상값은_그대로_통과한다() {
         var raw = new GeminiPrescriptionResult("2026-11-22", List.of(
-                new GeminiPrescriptionResult.Item(" 타이레놀정500mg ", "1정", 3, 5)));
+                new GeminiPrescriptionResult.Item(" 타이레놀정500mg ", "1정", 3, 5, "648900880")));
 
         PrescriptionAnalyzeResponse result = cleaner.clean(raw);
 
@@ -29,12 +29,13 @@ class PrescriptionResultCleanerTest {
         assertEquals("1정", med.dose());
         assertEquals(3, med.timesPerDay());
         assertEquals(5, med.days());
+        assertEquals("648900880", med.ediCode());
     }
 
     @Test
     void 이상한_값은_null로_바꾼다() {
         var raw = new GeminiPrescriptionResult("2026-13-45", List.of(
-                new GeminiPrescriptionResult.Item("뮤코펙트정", " ", 0, 999)));
+                new GeminiPrescriptionResult.Item("뮤코펙트정", " ", 0, 999, "12-34")));
 
         var med = cleaner.clean(raw).medicines().get(0);
 
@@ -42,14 +43,15 @@ class PrescriptionResultCleanerTest {
         assertNull(med.dose());
         assertNull(med.timesPerDay());
         assertNull(med.days());
+        assertNull(med.ediCode());
     }
 
     @Test
     void 이름없는_약과_null_항목은_제외한다() {
         var raw = new GeminiPrescriptionResult(null, Arrays.asList(
-                new GeminiPrescriptionResult.Item("", "1정", 2, 3),
+                new GeminiPrescriptionResult.Item("", "1정", 2, 3, null),
                 null,
-                new GeminiPrescriptionResult.Item("가스모틴정5mg", null, 2, null)));
+                new GeminiPrescriptionResult.Item("가스모틴정5mg", null, 2, null, null)));
 
         var result = cleaner.clean(raw);
 
