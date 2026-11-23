@@ -52,8 +52,7 @@ public class PrescriptionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사진을 읽지 못했습니다. 다시 촬영해 주세요.");
         }
 
-        String json = callGeminiWithOneRetry(bytes, mimeType);
-        PrescriptionAnalyzeResponse result = resultCleaner.clean(parse(json));
+        PrescriptionAnalyzeResponse result = resultCleaner.clean(callGeminiWithOneRetry(bytes, mimeType));
 
         if (result.medicines().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,
@@ -90,26 +89,34 @@ public class PrescriptionService {
      * 일시적 장애(서버 5xx, 사용량 초과 429, 시간 초과)일 때만
      * 잠깐 기다렸다가 한 번 재시도한다. 예비 모델이 설정돼 있으면 재시도는 예비 모델로 보낸다.
      */
-    private String callGeminiWithOneRetry(byte[] bytes, String mimeType) {
+    private GeminiPrescriptionResult callGeminiWithOneRetry(byte[] bytes, String mimeType) {
         String primary = geminiApiClient.primaryModel();
         try {
-            return geminiApiClient.analyzePrescription(bytes, mimeType, primary);
+            GeminiPrescriptionResult result = parse(geminiApiClient.analyzePrescription(bytes, mimeType, primary));
+            log.info("Gemini 분석 성공({})", primary);
+            return result;
         } catch (RestClientException e) {
             if (!isTemporary(e)) {
                 logRejected(e);
                 throw aiUnavailable();
             }
             log.warn("Gemini 일시 오류({}), 2초 후 1회 재시도: {}", primary, shortMessage(e));
+        } catch (ResponseStatusException unreadable) {
+            // 응답은 왔지만 JSON 이 깨진 경우도 한 번은 다시 시도한다
+            log.warn("Gemini 응답을 읽지 못함({}), 2초 후 1회 재시도", primary);
         }
 
         sleepBeforeRetry();
         String retry = geminiApiClient.retryModel();
         try {
-            return geminiApiClient.analyzePrescription(bytes, mimeType, retry);
+            GeminiPrescriptionResult result = parse(geminiApiClient.analyzePrescription(bytes, mimeType, retry));
+            log.info("Gemini 분석 성공({}, 재시도)", retry);
+            return result;
         } catch (RestClientException e) {
             log.error("Gemini 재시도 실패({}): {}", retry, shortMessage(e));
             throw isTemporary(e) ? aiBusy() : aiUnavailable();
         }
+        // parse 실패(ResponseStatusException)는 그대로 "처방전을 읽지 못했습니다" 로 나간다
     }
 
     /** 다시 시도하면 될 수도 있는 오류인지 */

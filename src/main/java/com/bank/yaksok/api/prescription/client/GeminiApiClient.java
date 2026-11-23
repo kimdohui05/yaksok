@@ -113,7 +113,9 @@ public class GeminiApiClient {
                 "generationConfig", Map.of(
                         "responseMimeType", "application/json",
                         "responseSchema", RESPONSE_SCHEMA,
-                        "temperature", 0
+                        // 출력 길이 상한: 모델이 같은 글자를 끝없이 반복하는 경우를 끊는다
+                        "maxOutputTokens", 2048
+                        // temperature 는 지정하지 않고 모델 기본값을 쓴다 (0 으로 두면 반복 출력이 생길 수 있음)
                 )
         );
 
