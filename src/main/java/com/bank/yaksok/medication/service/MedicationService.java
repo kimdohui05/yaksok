@@ -11,6 +11,7 @@ import com.bank.yaksok.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -83,5 +84,24 @@ public class MedicationService {
         }
 
         medicationRepository.delete(medication);
+    }
+
+    @Transactional
+    public MedicationResponseDto update(String email, Long medicationId, MedicationRequestDto request) {
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        MedicationEntity medication = medicationRepository.findById(medicationId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 약 정보를 찾을 수 없습니다."));
+
+        if (!medication.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("본인의 약 정보만 수정할 수 있습니다.");
+        }
+
+        // 수정할 때도 저장과 똑같이 약 이름 확인 (확인 안 되면 422, confirmed=true 면 그대로)
+        String medicineName = checkMedicineName(request);
+
+        medication.update(medicineName, request.alarmTime());
+        return new MedicationResponseDto(medication.getId(), medication.getMedicineName(), medication.getAlarmTime());
     }
 }

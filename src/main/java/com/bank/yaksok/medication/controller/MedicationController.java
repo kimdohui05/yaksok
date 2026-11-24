@@ -37,6 +37,16 @@ public class MedicationController {
         return ResponseEntity.ok(medicationService.getMyMedications(email));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<MedicationResponseDto> update(
+            Authentication authentication,
+            @PathVariable Long id,
+            @RequestBody MedicationRequestDto request
+    ) {
+        String email = authentication.getName();
+        return ResponseEntity.ok(medicationService.update(email, id, request));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(Authentication authentication, @PathVariable Long id) {
         String email = authentication.getName();
