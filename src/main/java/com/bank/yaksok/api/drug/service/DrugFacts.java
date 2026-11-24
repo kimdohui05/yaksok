@@ -7,7 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * AI 에 넘길 약 정보 (공공데이터 원문). AI 는 이 안의 내용만 근거로 요약한다.
+ * AI 에 넘길 약 정보 (공공데이터 원문). 효능과 음식 정보에 필요한 항목만 넘겨서 빠르게 요약한다.
  */
 record DrugFacts(String itemName, String source, Map<String, String> fields) {
 
@@ -18,12 +18,9 @@ record DrugFacts(String itemName, String source, Map<String, String> fields) {
         Map<String, String> f = new LinkedHashMap<>();
         put(f, "제조사", s.company());
         put(f, "효능", s.efficacy());
-        put(f, "사용법", s.usage());
         put(f, "사용 전 반드시 알아야 할 내용", s.warning());
         put(f, "사용상 주의사항", s.precaution());
         put(f, "함께 먹으면 안 되는 약·음식", s.interaction());
-        put(f, "부작용", s.sideEffect());
-        put(f, "보관법", s.storage());
         return new DrugFacts(s.itemName(), "e약은요", f);
     }
 
