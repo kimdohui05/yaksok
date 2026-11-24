@@ -1,5 +1,6 @@
 package com.bank.yaksok.medication.scheduler;
 
+import com.bank.yaksok.api.push.PushService;
 import com.bank.yaksok.email.service.EmailService;
 import com.bank.yaksok.medication.entity.MedicationEntity;
 import com.bank.yaksok.medication.repository.MedicationRepository;
@@ -19,6 +20,7 @@ public class MedicationAlarmScheduler {
 
     private final MedicationRepository medicationRepository;
     private final EmailService emailService;
+    private final PushService pushService;
 
     @Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul") // 매분 0초
     public void sendAlarms() {
@@ -27,6 +29,20 @@ public class MedicationAlarmScheduler {
         log.info("복약 알림 체크: now={}, 대상={}건", now, targets.size());
 
         for (MedicationEntity m : targets) {
+            // PC 알림 (구독한 브라우저가 없으면 아무것도 안 함). 메일과 따로 처리해서 한쪽이 실패해도 다른 쪽은 보낸다.
+            try {
+                int sent = pushService.sendToUser(m.getUser().getId(),
+                        "복약 시간이에요",
+                        m.getMedicineName() + " 복용할 시간입니다.",
+                        "/medicine",
+                        "med-" + m.getId() + "-" + now.toString().replace(":", ""));
+                if (sent > 0) {
+                    log.info("PC 알림 발송 완료: userId={}, medicine={}, 브라우저={}개", m.getUser().getId(), m.getMedicineName(), sent);
+                }
+            } catch (Exception e) {
+                log.error("PC 알림 발송 실패: medicationId={}", m.getId(), e);
+            }
+
             try {
                 emailService.send(
                         m.getUser().getEmail(),
