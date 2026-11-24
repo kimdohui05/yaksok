@@ -32,4 +32,10 @@ public class MedicationEntity {
     @Column(updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    // 약 이름 / 알람 시간 수정
+    public void update(String medicineName, LocalTime alarmTime) {
+        this.medicineName = medicineName;
+        this.alarmTime = alarmTime;
+    }
 }

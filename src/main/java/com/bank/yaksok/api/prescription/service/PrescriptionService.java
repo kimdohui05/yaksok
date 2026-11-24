@@ -78,10 +78,15 @@ public class PrescriptionService {
         }
 
         // AI 가 읽은 약 이름을 공공데이터로 검증 (보험코드 → 허가정보 → e약은요)
-        var verifiedMedicines = cleaned.medicines().stream()
-                .map(m -> {
-                    DrugNameVerifier.Result v = drugNameVerifier.verify(m.name(), m.ediCode());
-                    return m.withVerification(v.name(), v.verified(), v.originalName(), v.suggestedName());
+        // 약 여러 개를 동시에 확인한다 (하나씩 차례로 하면 약 개수만큼 느려진다)
+        var medicines = cleaned.medicines();
+        var results = drugNameVerifier.verifyAll(medicines.stream()
+                .map(m -> new DrugNameVerifier.Request(m.name(), m.ediCode()))
+                .toList());
+        var verifiedMedicines = java.util.stream.IntStream.range(0, medicines.size())
+                .mapToObj(i -> {
+                    DrugNameVerifier.Result v = results.get(i);
+                    return medicines.get(i).withVerification(v.name(), v.verified(), v.originalName(), v.suggestedName());
                 })
                 .toList();
         return new PrescriptionAnalyzeResponse(cleaned.prescriptionDate(), verifiedMedicines,
