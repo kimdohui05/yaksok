@@ -136,19 +136,26 @@ public class GeminiApiClient {
      * 텍스트가 없으면(안전 필터 차단 등) null.
      */
     public String analyzePrescription(byte[] image, String mimeType, String modelName) {
-        Map<String, Object> body = Map.of(
-                "contents", List.of(Map.of(
-                        "parts", List.of(
-                                Map.of("inlineData", Map.of(
-                                        "mimeType", mimeType,
-                                        "data", Base64.getEncoder().encodeToString(image)
-                                )),
-                                Map.of("text", PROMPT)
-                        )
+        List<Map<String, Object>> parts = List.of(
+                Map.of("inlineData", Map.of(
+                        "mimeType", mimeType,
+                        "data", Base64.getEncoder().encodeToString(image)
                 )),
+                Map.of("text", PROMPT)
+        );
+        return generateJson(parts, RESPONSE_SCHEMA, modelName);
+    }
+
+    /**
+     * 공통 호출: parts(텍스트/이미지)를 보내고, schema 모양의 JSON 문자열을 돌려준다.
+     * 텍스트가 없으면(안전 필터 차단 등) null.
+     */
+    public String generateJson(List<Map<String, Object>> parts, Map<String, Object> schema, String modelName) {
+        Map<String, Object> body = Map.of(
+                "contents", List.of(Map.of("parts", parts)),
                 "generationConfig", Map.of(
                         "responseMimeType", "application/json",
-                        "responseSchema", RESPONSE_SCHEMA,
+                        "responseSchema", schema,
                         // 출력 길이 상한: 모델이 같은 글자를 끝없이 반복하는 경우를 끊는다.
                         // 약이 많은 처방전이나 내부 추론을 쓰는 모델은 2048 로는 잘려서 8192 로 둔다.
                         "maxOutputTokens", 8192
