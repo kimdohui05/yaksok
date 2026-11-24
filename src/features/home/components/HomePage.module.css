@@ -16,67 +16,34 @@
   margin-bottom: 8px;
 }
 
-.logo { font-size: 20px; }
+.logoMark {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--tab-active);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .logoText {
   font-size: 18px;
   font-weight: 800;
-  color: var(--primary);
+  color: var(--tab-active);
   letter-spacing: -0.5px;
 }
 
-.greeting {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.date {
-  font-size: 11.5px;
-  color: var(--text-sub);
-  margin-top: 3px;
-}
+.greeting { font-size: 15px; font-weight: 700; color: var(--text); }
+.date { font-size: 11.5px; color: var(--text-sub); margin-top: 3px; }
 
 .alarmBtn {
   background: none;
   border: none;
-  font-size: 24px;
   cursor: pointer;
-  position: relative;
   padding: 4px;
-}
-
-.alarmDot {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 8px;
-  height: 8px;
-  background: var(--danger);
-  border-radius: 50%;
-  border: 1.5px solid #fff;
-}
-
-.warningBanner {
+  color: var(--tab-active);
   display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #FFF3CD;
-  border-bottom: 1.5px solid #F5BC3D;
-  padding: 13px 20px;
-  cursor: pointer;
-}
-
-.warningTitle {
-  font-size: 13px;
-  font-weight: 700;
-  color: #856404;
-}
-
-.warningDesc {
-  font-size: 11.5px;
-  color: #C98A1A;
-  margin-top: 2px;
 }
 
 .content {
@@ -84,6 +51,39 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.loading { text-align: center; padding: 40px; color: var(--text-sub); }
+
+/* 상단 강조 카드 (처방전 촬영 / 다음 복용) */
+.heroCard {
+  background: linear-gradient(135deg, #3BBFD4, #3A9E9A);
+  border-radius: 16px;
+  padding: 18px 16px 16px;
+  box-shadow: 0 4px 16px rgba(47,182,209,0.3);
+  color: #fff;
+}
+
+.heroLabel { font-size: 11.5px; color: rgba(255,255,255,0.8); font-weight: 600; margin-bottom: 6px; }
+.heroTitle { font-size: 17px; font-weight: 800; }
+.heroDesc { font-size: 12px; color: rgba(255,255,255,0.8); margin-top: 4px; }
+
+.heroBtn {
+  margin-top: 14px;
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  border: none;
+  background: #fff;
+  color: var(--primary-dark);
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .card {
@@ -101,24 +101,19 @@
   margin-bottom: 12px;
 }
 
-.cardTitle {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
-}
+.cardTitle { font-size: 14px; font-weight: 700; color: var(--text); }
 
 .cardBadge {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--primary);
-  background: var(--bg);
+  color: var(--tab-active);
+  background: #E3F6FA;
   padding: 3px 10px;
   border-radius: 20px;
-  border: 1px solid var(--border);
 }
 
 .progressBar {
-  height: 10px;
+  height: 8px;
   background: var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -127,62 +122,58 @@
 
 .progressFill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+  background: linear-gradient(90deg, #3BBFD4, #3A9E9A);
   border-radius: 10px;
   transition: width 0.4s ease;
 }
 
-.pctRow {
+.pct { font-size: 12px; color: var(--text-sub); }
+
+/* 빈 상태 */
+.emptyBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0 16px;
+}
+
+.emptyIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #E3F6FA;
+  color: var(--tab-active);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  margin-bottom: 6px;
 }
 
-.pct {
-  font-size: 12px;
-  color: var(--text-sub);
-}
+.emptyTitle { font-size: 14px; font-weight: 700; color: var(--text); }
+.emptyDesc { font-size: 12px; color: var(--text-sub); }
 
-.allDone {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--success);
-}
-
-.nextCard {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 4px 16px rgba(59,191,212,0.3);
-}
-
-.nextLabel {
-  font-size: 11.5px;
-  color: rgba(255,255,255,0.75);
-  font-weight: 600;
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.nextRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.nextName {
-  font-size: 17px;
+.addOutlineBtn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 11px;
+  border-radius: 10px;
+  border: 1.5px solid var(--tab-active);
+  background: #fff;
+  color: var(--tab-active);
+  font-size: 13px;
   font-weight: 700;
-  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background 0.13s;
 }
+.addOutlineBtn:hover { background: #F0FBFD; }
 
-.nextTime {
-  font-size: 14px;
-  color: rgba(255,255,255,0.8);
-  margin-top: 3px;
-}
-
+/* 복약 목록 */
 .medItem {
   display: flex;
   align-items: center;
@@ -190,60 +181,39 @@
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
-  transition: all 0.12s;
 }
+.medItem:last-of-type { border-bottom: none; }
 
-.medItem:last-child { border-bottom: none; }
+.medInfo { flex: 1; }
+.medName { font-size: 14px; font-weight: 700; color: var(--text); }
+.medNameDone { color: var(--text-sub); }
+.medTime { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
 
-.check {
-  width: 24px;
-  height: 24px;
+.checkCircle {
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 2px solid var(--border);
+  background: var(--tab-active);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  color: #fff;
   flex-shrink: 0;
-  transition: all 0.13s;
 }
 
-.checked {
-  background: var(--success);
-  border-color: var(--success);
-}
-
-.medInfo { flex: 1; }
-
-.medName {
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.13s;
-}
-
-.medTime {
-  font-size: 12px;
-  color: var(--text-sub);
-  margin-top: 2px;
-}
-
-.doneTag {
+.missedTag, .upcomingTag {
   font-size: 11px;
-  font-weight: 600;
-  color: var(--success);
-  background: #E0FAF0;
+  font-weight: 700;
   padding: 3px 9px;
-  border-radius: 6px;
+  border-radius: 10px;
 }
+.missedTag { color: var(--danger); background: #FEECEC; }
+.upcomingTag { color: #C98A1A; background: #FEF3D6; }
 
 .disclaimer {
-  padding: 12px 14px;
-  background: #EDF6F9;
-  border-radius: 10px;
+  padding: 8px 14px;
   font-size: 11px;
   color: var(--text-sub);
   line-height: 1.6;
-  border: 1px solid var(--border);
   text-align: center;
 }

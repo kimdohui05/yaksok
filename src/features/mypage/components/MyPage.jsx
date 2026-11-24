@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BottomTab from '../../../components/common/BottomTab'
 import client from '../../../api/client'
+import Icon from '../../../components/common/Icon'
+import { findInteractions } from '../../medicine/categories'
 import styles from './MyPage.module.css'
 
 // localStorage에서 처방 정보 불러오기
@@ -38,9 +40,12 @@ export default function MyPage() {
   const prescInfo = getPrescInfo()
 
   const medCount = medicines.length
-  const warningCount = 0 // 백엔드 미지원
+  const warningCount = findInteractions(medicines.map(m => m.medicineName)).length
+  // 홈/일정 화면과 같은 날짜별 키에서 오늘 완료 목록을 읽음
   const doneMeds = (() => {
-    try { return JSON.parse(localStorage.getItem('doneMeds') || '[]') }
+    const d = new Date()
+    const key = `doneMeds_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    try { return JSON.parse(localStorage.getItem(key) || '[]') }
     catch { return [] }
   })()
   const pct = medCount > 0 ? Math.round(doneMeds.length / medCount * 100) : 0
@@ -127,6 +132,7 @@ export default function MyPage() {
         <div className={styles.avatar}>{nickname.charAt(0).toUpperCase()}</div>
         <div className={styles.profileInfo}>
           <div className={styles.name}>{profile?.name || nickname}</div>
+          {profile?.email && <div className={styles.email}>{profile.email}</div>}
         </div>
       </div>
 
@@ -147,7 +153,10 @@ export default function MyPage() {
               <div className={styles.statValue}>{pct}%</div>
               <div className={styles.statLabel}>오늘 완료율</div>
             </div>
-            <div className={styles.statItem}>
+            <div
+              className={`${styles.statItem} ${warningCount > 0 ? styles.statWarning : ''}`}
+              onClick={() => warningCount > 0 && navigate('/medicine')}
+            >
               <div className={styles.statValue}>{warningCount}건</div>
               <div className={styles.statLabel}>상호작용 경고</div>
             </div>
@@ -177,7 +186,7 @@ export default function MyPage() {
               </div>
             )}
             <button className={styles.linkBtn} onClick={() => navigate('/medicine')}>
-              전체 약 목록 보기 →
+              전체 약 목록 보기 ›
             </button>
           </div>
         </div>
@@ -190,7 +199,7 @@ export default function MyPage() {
           {prescList.length === 0 ? (
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>등록된 처방 정보</span>
-              <span className={styles.infoValue}>미등록</span>
+              <span className={styles.unregistered}>미등록</span>
             </div>
           ) : (
             prescList.map(p => (
@@ -200,8 +209,11 @@ export default function MyPage() {
               </div>
             ))
           )}
-          <button className={styles.linkBtn} onClick={() => navigate('/medicine/add')}>
-            처방전 등록하기 →
+          <button
+            className={styles.outlineBtn}
+            onClick={() => navigate('/medicine/add', { state: { mode: 'photo' } })}
+          >
+            <Icon name="camera" size={16} /> 처방전 등록하기
           </button>
         </div>
       </div>
@@ -228,7 +240,7 @@ export default function MyPage() {
       </div>
 
       <div className={styles.disclaimer}>
-        ⚕️ 본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.
+        본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.
       </div>
 
       <div className={styles.bottomSection}>

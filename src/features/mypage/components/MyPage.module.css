@@ -10,9 +10,9 @@
 .profileCard {
   display: flex; align-items: center; gap: 16px;
   margin: 16px 16px 0; padding: 20px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  background: linear-gradient(135deg, #3BBFD4, #3A9E9A);
   border-radius: 20px;
-  box-shadow: 0 4px 16px rgba(59,191,212,0.3);
+  box-shadow: 0 4px 16px rgba(47,182,209,0.3);
 }
 
 .avatar {
@@ -48,7 +48,8 @@
   box-shadow: 0 2px 6px rgba(0,0,0,0.04);
 }
 
-.statWarning { border-color: #F5BC3D; background: #FFFCF0; }
+.statWarning { border-color: #FFCDD2; background: #FFF5F5; cursor: pointer; }
+.statWarning .statValue, .statWarning .statLabel { color: var(--danger); }
 .statValue { font-size: 16px; font-weight: 800; color: var(--text); }
 .statLabel { font-size: 11px; color: var(--text-sub); font-weight: 500; text-align: center; }
 
@@ -65,7 +66,19 @@
   gap: 10px;
 }
 .infoLabel { font-size: 13px; color: var(--text); font-weight: 500; }
-.infoValue { font-size: 13px; font-weight: 700; color: var(--primary); text-align: right; }
+.infoValue { font-size: 13px; font-weight: 700; color: var(--tab-active); text-align: right; }
+.unregistered {
+  font-size: 11px; font-weight: 700; color: #C98A1A;
+  background: #FEF3D6; padding: 2px 9px; border-radius: 10px;
+}
+.outlineBtn {
+  width: 100%; padding: 10px; border-radius: 10px;
+  border: 1.5px solid var(--tab-active); background: #fff;
+  color: var(--tab-active); font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.outlineBtn:hover { background: #F0FBFD; }
 
 /* 처방일수 상태 색상 */
 .prescWarning { color: #C98A1A; }
@@ -89,7 +102,7 @@
   background: var(--border); position: relative;
   cursor: pointer; transition: background 0.2s; flex-shrink: 0;
 }
-.toggleOn { background: var(--primary); }
+.toggleOn { background: var(--tab-active); }
 .toggleThumb {
   position: absolute; top: 3px; left: 3px;
   width: 22px; height: 22px; border-radius: 50%;
@@ -100,19 +113,18 @@
 
 /* 면책 고지 */
 .disclaimer {
-  margin: 16px 16px 0; padding: 12px 14px;
-  background: #EDF6F9; border-radius: 10px;
+  margin: 16px 16px 0; padding: 8px 14px;
   font-size: 11px; color: var(--text-sub); line-height: 1.6;
-  border: 1px solid var(--border); text-align: center;
+  text-align: center;
 }
 
 /* 로그아웃 */
 .bottomSection { padding: 16px; }
 .logoutBtn {
   width: 100%; padding: 14px;
-  border-radius: 12px; border: 1.5px solid #FEECEC;
-  background: #FEECEC; font-size: 14px; font-weight: 700;
+  border-radius: 12px; border: none;
+  background: none; font-size: 13px; font-weight: 700;
   color: var(--danger); cursor: pointer; font-family: inherit;
   transition: all 0.13s;
 }
-.logoutBtn:hover { background: var(--danger); color: #fff; }
+.logoutBtn:hover { background: #FEECEC; }

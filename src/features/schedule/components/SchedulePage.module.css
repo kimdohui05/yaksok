@@ -8,8 +8,9 @@
 .title { font-size: 17px; font-weight: 800; color: var(--text); }
 
 .monthLabel {
-  font-size: 13px; color: var(--primary); font-weight: 700;
-  background: #E0F7FB; border: none; border-radius: 20px;
+  font-size: 12px; color: var(--tab-active); font-weight: 700;
+  background: #E3F6FA; border: none; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 4px;
   padding: 6px 14px; cursor: pointer; font-family: inherit; transition: all 0.13s;
 }
 .monthLabel:hover { background: #C8F0F8; }
@@ -22,26 +23,31 @@
   gap: 6px; padding: 10px 8px; border-radius: 14px;
   cursor: pointer; transition: all 0.13s; position: relative; min-width: 44px;
 }
-.selectedDay { background: var(--primary); }
+.selectedDay { background: var(--tab-active); }
 .selectedDay .dayLabel, .selectedDay .dayNum { color: #fff; }
 .todayDay { background: var(--bg); }
 .dayLabel { font-size: 11px; color: var(--text-sub); font-weight: 500; }
 .dayNum { font-size: 16px; font-weight: 700; color: var(--text); }
 .todayDot {
   width: 5px; height: 5px; border-radius: 50%;
-  background: var(--primary); position: absolute; bottom: 4px;
+  background: var(--tab-active); position: absolute; bottom: 4px;
 }
 .selectedDay .todayDot { background: #fff; }
 
 .selectedDateLabel {
   padding: 12px 20px; font-size: 13px; font-weight: 700;
   color: var(--text); background: #fff; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.doneChip {
+  font-size: 11px; font-weight: 700; color: var(--tab-active);
+  background: #E3F6FA; padding: 3px 10px; border-radius: 10px;
 }
 
 .scheduleList { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 .timeBlock { display: flex; gap: 14px; }
 .timeLabel {
-  font-size: 12px; font-weight: 700; color: var(--primary);
+  font-size: 12px; font-weight: 600; color: var(--text-sub);
   width: 48px; flex-shrink: 0; padding-top: 14px;
 }
 .medList { flex: 1; display: flex; flex-direction: column; gap: 8px; }
@@ -52,7 +58,18 @@
   cursor: pointer;
 }
 .medItem:active { opacity: 0.8; }
-.done { opacity: 0.6; background: #F7FAFC; }
+.done { background: #fff; }
+.done .medName { color: var(--text-sub); }
+.nextItem { border-color: var(--tab-active); background: #F5FCFD; }
+.checkCircle {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--tab-active); color: #fff;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.missedTag {
+  font-size: 11px; font-weight: 700;
+  background: #FEECEC; color: var(--danger); padding: 3px 9px; border-radius: 10px;
+}
 .check {
   width: 22px; height: 22px; border-radius: 50%;
   border: 2px solid var(--border);
@@ -66,9 +83,9 @@
   background: #E0FAF0; color: var(--success); padding: 3px 9px; border-radius: 6px;
 }
 .pendingTag {
-  font-size: 11px; font-weight: 600;
-  background: var(--bg); color: var(--text-sub);
-  padding: 3px 9px; border-radius: 6px; border: 1px solid var(--border);
+  font-size: 11px; font-weight: 700;
+  background: #FEF3D6; color: #C98A1A;
+  padding: 3px 9px; border-radius: 10px;
 }
 
 /* 빈 상태 */
@@ -77,14 +94,17 @@
   gap: 8px; padding: 48px 20px; text-align: center;
   font-size: 14px; font-weight: 600; color: var(--text-sub);
 }
-.emptyIcon { font-size: 40px; margin-bottom: 4px; }
+.emptyIcon {
+  width: 48px; height: 48px; border-radius: 50%; margin-bottom: 4px;
+  background: #E3F6FA; color: var(--tab-active);
+  display: flex; align-items: center; justify-content: center;
+}
 .emptyDesc { font-size: 12px; color: var(--text-sub); font-weight: 400; }
 
 .disclaimer {
-  margin: 0 16px 16px; padding: 12px 14px;
-  background: #EDF6F9; border-radius: 10px;
+  margin: 0 16px 16px; padding: 8px 14px;
   font-size: 11px; color: var(--text-sub); line-height: 1.6;
-  border: 1px solid var(--border); text-align: center;
+  text-align: center;
 }
 
 /* 캘린더 모달 */

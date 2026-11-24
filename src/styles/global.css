@@ -12,6 +12,8 @@
   --text-sub: #7A9BA8;
   --border: #D6EFF4;
   --max-width: 390px;
+  --tab-active: #2FB6D1;
+  --tab-inactive: #8AA4AF;
 }
 
 html, body, #root {

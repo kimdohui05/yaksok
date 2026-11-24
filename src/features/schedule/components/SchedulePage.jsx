@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import client from '../../../api/client'
 import BottomTab from '../../../components/common/BottomTab'
+import Icon from '../../../components/common/Icon'
 import styles from './SchedulePage.module.css'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -179,6 +180,21 @@ export default function SchedulePage() {
   const calendarDates = getCalendarDates()
   const hasSchedule = Object.keys(schedule).length > 0
 
+  // 완료 개수 / 상태 계산 (오늘 기준: 지난 시간 = 놓침, 이후 = 예정)
+  const allItems = Object.entries(schedule).flatMap(([time, meds]) => meds.map(m => ({ ...m, time })))
+  const doneCount = allItems.filter(m => doneSet.has(String(m.id))).length
+  const selectedStr = toDateStr(selectedDate)
+  const todayStr = toDateStr(today)
+  const nowStr = `${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`
+  const statusOf = (m, time) => {
+    if (doneSet.has(String(m.id))) return 'done'
+    if (selectedStr < todayStr || (selectedStr === todayStr && time < nowStr)) return 'missed'
+    return 'upcoming'
+  }
+  const nextItem = selectedStr === todayStr
+    ? allItems.find(m => !doneSet.has(String(m.id)) && m.time >= nowStr)
+    : null
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -192,7 +208,8 @@ export default function SchedulePage() {
             setTempMonth(currentMonth.getMonth())
           }}
         >
-          {selectedDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })} ▾
+          {selectedDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}
+          <Icon name="chevronDown" size={14} />
         </button>
       </header>
 
@@ -220,6 +237,9 @@ export default function SchedulePage() {
       {/* 선택된 날짜 표시 */}
       <div className={styles.selectedDateLabel}>
         {selectedDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}
+        {allItems.length > 0 && (
+          <span className={styles.doneChip}>{doneCount} / {allItems.length} 완료</span>
+        )}
       </div>
 
       {/* 시간대별 일정 */}
@@ -228,7 +248,7 @@ export default function SchedulePage() {
           <div className={styles.emptyMsg}>불러오는 중...</div>
         ) : !hasSchedule ? (
           <div className={styles.emptyMsg}>
-            <div className={styles.emptyIcon}>💊</div>
+            <div className={styles.emptyIcon}><Icon name="pill" size={22} /></div>
             <div>등록된 약이 없어요</div>
             <div className={styles.emptyDesc}>약 탭에서 복용 중인 약을 추가해보세요</div>
           </div>
@@ -238,16 +258,14 @@ export default function SchedulePage() {
               <div className={styles.timeLabel}>{time}</div>
               <div className={styles.medList}>
                 {meds.map((m) => {
-                  const done = doneSet.has(String(m.id))
+                  const status = statusOf(m, time)
+                  const isNext = nextItem && nextItem.id === m.id
                   return (
                     <div
                       key={m.id}
-                      className={`${styles.medItem} ${done ? styles.done : ''}`}
+                      className={`${styles.medItem} ${status === 'done' ? styles.done : ''} ${isNext ? styles.nextItem : ''}`}
                       onClick={() => toggleDone(m.id)}
                     >
-                      <div className={`${styles.check} ${done ? styles.checked : ''}`}>
-                        {done && '✓'}
-                      </div>
                       <span className={styles.medName}>
                         {m.name}
                         {m.presc && (
@@ -256,14 +274,15 @@ export default function SchedulePage() {
                             color: m.presc.level === 'expired' ? 'var(--danger)'
                               : m.presc.level === 'warning' ? '#C98A1A' : 'var(--text-sub)',
                           }}>
-                            📋 {m.presc.text}
+                            {m.presc.text}
                           </span>
                         )}
                       </span>
-                      {done
-                        ? <span className={styles.doneTag}>완료</span>
-                        : <span className={styles.pendingTag}>대기</span>
-                      }
+                      {status === 'done' && (
+                        <span className={styles.checkCircle}><Icon name="check" size={13} strokeWidth={3} /></span>
+                      )}
+                      {status === 'missed' && <span className={styles.missedTag}>놓침</span>}
+                      {status === 'upcoming' && <span className={styles.pendingTag}>예정</span>}
                     </div>
                   )
                 })}
@@ -274,7 +293,7 @@ export default function SchedulePage() {
       </div>
 
       <div className={styles.disclaimer}>
-        ⚕️ 본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.
+        본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.
       </div>
 
       <div style={{ height: '80px' }} />
@@ -296,7 +315,7 @@ export default function SchedulePage() {
                   setTempMonth(currentMonth.getMonth())
                 }}
               >
-                {currentMonth.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })} ▾
+                {currentMonth.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}
               </button>
               <button className={styles.monthBtn} onClick={nextMonth}>›</button>
             </div>
