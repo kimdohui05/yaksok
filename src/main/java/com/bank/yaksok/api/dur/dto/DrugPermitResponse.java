@@ -32,6 +32,8 @@ public record DrugPermitResponse(Header header, Body body) {
             @JsonProperty("ENTP_NAME") String entpName,
             @JsonProperty("SPCLTY_PBLC") String specialty,   // 전문의약품 / 일반의약품
             @JsonProperty("EDI_CODE") String ediCode,        // 보험코드 (일반의약품은 null 인 경우가 많음)
+            @JsonProperty("ITEM_INGR_NAME") String ingredient, // 주성분 (영문), 예: Acetaminophen
+            @JsonProperty("PRDUCT_TYPE") String productType,   // 분류, 예: [01140]해열.진통.소염제
             @JsonProperty("CANCEL_NAME") String cancelName   // 정상 / 취소 등
     ) {
         /** 허가가 취소되지 않은 품목인지 */
