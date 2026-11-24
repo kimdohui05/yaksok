@@ -63,4 +63,19 @@ class DrugNameVerifierTest {
         assertEquals(1, DrugNameVerifier.distance("폰탈한캡슐", "폰탈캡슐"));
         assertEquals(0, DrugNameVerifier.distance("abc", "abc"));
     }
+
+    @Test
+    void 후보는_괄호를_빼고_중복없이_가까운_순으로() {
+        var ranked = DrugNameVerifier.rankSuggestions("타이래놀정",
+                java.util.List.of("타이레놀콜드에스정", "타이레놀정500밀리그람(아세트아미노펜)", "타이레놀정160밀리그램",
+                        "타이레놀정500밀리그람(아세트아미노펜)", "타이레놀정"),
+                3);
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.List.of("타이레놀정", "타이레놀정500밀리그람", "타이레놀정160밀리그램"), ranked);
+    }
+
+    @Test
+    void 후보가_없으면_빈_목록() {
+        org.junit.jupiter.api.Assertions.assertTrue(DrugNameVerifier.rankSuggestions("아무거나", java.util.List.of(), 5).isEmpty());
+    }
 }

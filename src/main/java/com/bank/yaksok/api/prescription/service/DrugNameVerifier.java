@@ -138,7 +138,54 @@ public class DrugNameVerifier {
                 .toList();
     }
 
+    /**
+     * 확인되지 않은 이름에 대해 비슷한 공식 약 이름 후보를 찾는다 (가까운 순, 최대 limit 개).
+     * 약 저장 거부 응답과 연관검색어에서 쓴다. 외부 조회가 실패하면 그 부분은 건너뛴다.
+     */
+    public List<String> suggest(String name, int limit) {
+        if (name == null || name.isBlank()) return List.of();
+        String input = name.trim();
+        Set<String> keywords = new LinkedHashSet<>();
+        keywords.add(input);
+        String shortName = shortName(input);
+        if (shortName.length() >= 2) keywords.add(shortName);
+        if (input.length() >= 3) keywords.add(input.substring(0, 2));
+
+        Set<String> candidates = new LinkedHashSet<>();
+        for (String keyword : keywords) {
+            try {
+                candidates.addAll(permitNames(keyword));
+            } catch (RuntimeException e) {
+                log.warn("후보 조회(허가정보) 실패: name={}, reason={}", keyword, e.getMessage());
+            }
+        }
+        if (candidates.isEmpty()) {
+            try {
+                candidates.addAll(easyDrugNames(shortName.length() >= 2 ? shortName : input));
+            } catch (RuntimeException e) {
+                log.warn("후보 조회(e약은요) 실패: name={}, reason={}", input, e.getMessage());
+            }
+        }
+        return rankSuggestions(input, new ArrayList<>(candidates), limit);
+    }
+
     // ───── 아래는 외부 호출 없는 순수 로직 (단위 테스트 대상) ─────
+
+    /** 후보를 화면용 이름으로 바꾸고 중복을 뺀 뒤, 입력과 글자 차이가 적은 순(같으면 짧은 이름 먼저)으로 정렬 */
+    static List<String> rankSuggestions(String input, List<String> candidates, int limit) {
+        String target = normalize(input);
+        Set<String> seen = new LinkedHashSet<>();
+        List<String> unique = new ArrayList<>();
+        for (String c : candidates) {
+            if (c == null || c.isBlank()) continue;
+            String display = displayName(c);
+            if (!display.isEmpty() && seen.add(normalize(display))) unique.add(display);
+        }
+        // 입력에 용량이 없으면 후보도 용량을 빼고 비교 ("타이래놀정" ↔ "타이레놀정500밀리그람" 은 1글자 차이)
+        unique.sort(java.util.Comparator.comparingInt((String c) -> distance(target, base(target, c)))
+                .thenComparingInt(String::length));
+        return unique.size() > limit ? List.copyOf(unique.subList(0, limit)) : List.copyOf(unique);
+    }
 
     /** 사실상 같은 약 이름인지 (괄호·공백·단위 표기 차이 무시, 읽은 이름에 용량이 없으면 공식명 용량도 무시) */
     static boolean isSameDrug(String aiName, String official) {
