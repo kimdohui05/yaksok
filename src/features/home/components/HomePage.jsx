@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import client from '../../../api/client'
+import { listMedications, isLoggedIn } from '../../medicine/api/medicationStore'
 import BottomTab from '../../../components/common/BottomTab'
 import Icon from '../../../components/common/Icon'
+import { isPushSupported, enablePush } from '../../notification/push'
 import styles from './HomePage.module.css'
 
 const formatTime = (alarmTime) => {
@@ -35,16 +36,35 @@ const loadDone = () => {
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const loggedIn = isLoggedIn()
   const nickname = localStorage.getItem('nickname') || '사용자'
   const [meds, setMeds] = useState([])
   const [doneSet, setDoneSet] = useState(loadDone)
   const [loading, setLoading] = useState(true)
   const [hasUnread, setHasUnread] = useState(false)
+  // 처음 한 번만: 로그인했고, 아직 알림 허용 여부를 정하지 않았으면 PC 알림 안내
+  const [showPushPrompt, setShowPushPrompt] = useState(() =>
+    isLoggedIn() && isPushSupported() &&
+    Notification.permission === 'default' &&
+    localStorage.getItem('pushPromptDone') !== 'true'
+  )
+
+  const closePushPrompt = () => {
+    localStorage.setItem('pushPromptDone', 'true')
+    setShowPushPrompt(false)
+  }
+
+  // 권한 요청은 버튼을 누를 때 (브라우저가 페이지 열자마자 묻는 것을 막는 경우가 많음)
+  const handleEnablePush = async () => {
+    const result = await enablePush()
+    if (!result.ok) alert(result.message)
+    closePushPrompt()
+  }
 
   useEffect(() => {
-    client.get('/medications')
-      .then(res => {
-        setMeds(res.data
+    listMedications()
+      .then(data => {
+        setMeds(data
           .map(m => ({ id: m.id, name: m.medicineName, time: formatTime(m.alarmTime) }))
           .sort((a, b) => a.time.localeCompare(b.time)))
       })
@@ -100,17 +120,45 @@ export default function HomePage() {
             <span className={styles.logoMark}><Icon name="pill" size={14} strokeWidth={2.4} /></span>
             <span className={styles.logoText}>YakSok</span>
           </div>
-          <div className={styles.greeting}>안녕하세요, {nickname}님</div>
+          <div className={styles.greeting}>{loggedIn ? `안녕하세요, ${nickname}님` : '안녕하세요!'}</div>
           <div className={styles.date}>
             {now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
           </div>
         </div>
-        <button className={styles.alarmBtn} onClick={handleAlarmClick} aria-label="알림">
-          <Icon name={hasUnread ? 'bellDot' : 'bell'} size={24} />
-        </button>
+        {loggedIn ? (
+          <button className={styles.alarmBtn} onClick={handleAlarmClick} aria-label="알림">
+            <Icon name={hasUnread ? 'bellDot' : 'bell'} size={24} />
+          </button>
+        ) : (
+          <button className={styles.loginBtn} onClick={() => navigate('/login')}>로그인</button>
+        )}
       </header>
 
       <div className={styles.content}>
+        {/* 게스트 안내: 로그인 없이도 쓸 수 있지만, 로그인하면 계정에 저장 */}
+        {!loggedIn && (
+          <div className={styles.guestBanner}>
+            <div className={styles.guestText}>
+              <div className={styles.guestTitle}>로그인 없이 사용 중이에요</div>
+              <div className={styles.guestDesc}>등록한 약은 이 기기에만 저장돼요. 로그인하면 계정으로 옮겨져요.</div>
+            </div>
+            <button className={styles.guestBtn} onClick={() => navigate('/login')}>로그인</button>
+          </div>
+        )}
+
+        {showPushPrompt && (
+          <div className={styles.guestBanner}>
+            <div className={styles.guestText}>
+              <div className={styles.guestTitle}>복약 시간에 PC 알림을 받아볼까요?</div>
+              <div className={styles.guestDesc}>앱을 닫아도 Windows 알림 센터로 알려드려요.</div>
+            </div>
+            <div className={styles.pushBtns}>
+              <button className={styles.guestBtn} onClick={handleEnablePush}>알림 켜기</button>
+              <button className={styles.laterBtn} onClick={closePushPrompt}>나중에</button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className={styles.loading}>불러오는 중...</div>
         ) : totalCnt === 0 ? (

@@ -4,6 +4,8 @@ import BottomTab from '../../../components/common/BottomTab'
 import client from '../../../api/client'
 import Icon from '../../../components/common/Icon'
 import { findInteractions } from '../../medicine/categories'
+import { listMedications, isLoggedIn } from '../../medicine/api/medicationStore'
+import { isPushSupported, isPushSubscribed, enablePush, disablePush } from '../../notification/push'
 import styles from './MyPage.module.css'
 
 // localStorage에서 처방 정보 불러오기
@@ -35,7 +37,10 @@ export default function MyPage() {
     localStorage.getItem('alarmEnabled') !== 'false'
   )
   const [loading, setLoading] = useState(true)
+  const [pushOn, setPushOn] = useState(false)       // PC 알림 센터 알림(웹 푸시) 구독 여부
+  const [pushBusy, setPushBusy] = useState(false)
 
+  const loggedIn = isLoggedIn()
   const nickname = localStorage.getItem('nickname') || '사용자'
   const prescInfo = getPrescInfo()
 
@@ -51,15 +56,37 @@ export default function MyPage() {
   const pct = medCount > 0 ? Math.round(doneMeds.length / medCount * 100) : 0
 
   useEffect(() => {
-    client.get('/api/user/profile')
-      .then(res => setProfile(res.data))
-      .catch(() => {})
+    if (isLoggedIn()) {
+      client.get('/api/user/profile')
+        .then(res => setProfile(res.data))
+        .catch(() => {})
+    }
 
-    client.get('/medications')
-      .then(res => setMedicines(res.data))
+    listMedications()
+      .then(data => setMedicines(data))
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    isPushSubscribed().then(setPushOn).catch(() => {})
   }, [])
+
+  // PC 알림 켜기/끄기 (로그인 + 지원 브라우저에서만)
+  const handlePushToggle = async () => {
+    if (pushBusy) return
+    setPushBusy(true)
+    try {
+      if (pushOn) {
+        await disablePush()
+        setPushOn(false)
+      } else {
+        const result = await enablePush()
+        if (result.ok) setPushOn(true)
+        else alert(result.message)
+      }
+    } finally {
+      setPushBusy(false)
+    }
+  }
 
   const handleAlarmToggle = async () => {
     if (!alarmOn) {
@@ -76,7 +103,9 @@ export default function MyPage() {
     localStorage.setItem('alarmEnabled', String(next))
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // 공용 PC에서 다른 사람에게 내 복약 알림이 가지 않도록 구독 해제 (토큰이 있을 때 먼저)
+    await disablePush().catch(() => {})
     localStorage.clear()
     navigate('/login', { replace: true })
   }
@@ -127,7 +156,20 @@ export default function MyPage() {
         <h1 className={styles.title}>내 정보</h1>
       </header>
 
-      {/* 프로필 카드 */}
+      {/* 프로필 카드 (로그인 전에는 로그인 안내) */}
+      {!loggedIn ? (
+        <div className={styles.profileCard}>
+          <div className={styles.avatar}><Icon name="profile" size={26} /></div>
+          <div className={styles.profileInfo}>
+            <div className={styles.guestTitle}>로그인 없이 사용 중</div>
+            <div className={styles.email}>등록한 약은 이 기기에만 저장돼요</div>
+            <div className={styles.guestBtns}>
+              <button className={styles.guestPrimary} onClick={() => navigate('/login')}>로그인</button>
+              <button className={styles.guestSecondary} onClick={() => navigate('/signup')}>회원가입</button>
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className={styles.profileCard}>
         <div className={styles.avatar}>{nickname.charAt(0).toUpperCase()}</div>
         <div className={styles.profileInfo}>
@@ -135,6 +177,7 @@ export default function MyPage() {
           {profile?.email && <div className={styles.email}>{profile.email}</div>}
         </div>
       </div>
+      )}
 
       {/* 복약 현황 */}
       <div className={styles.section}>
@@ -236,6 +279,30 @@ export default function MyPage() {
               <div className={styles.toggleThumb} />
             </div>
           </div>
+
+          {/* PC 알림 센터 알림 (웹 푸시): 앱을 닫아도 복약 시간에 Windows 알림으로 받기 */}
+          <div className={styles.settingRow}>
+            <div>
+              <div className={styles.settingLabel}>PC 알림 센터 알림</div>
+              <div className={styles.settingDesc}>
+                {!loggedIn
+                  ? '로그인하면 사용할 수 있어요'
+                  : !isPushSupported()
+                    ? '이 브라우저 또는 주소(HTTPS 아님)에서는 쓸 수 없어요'
+                    : pushOn
+                      ? '앱을 닫아도 복약 시간에 알림이 와요'
+                      : '앱을 닫아도 알림을 받으려면 켜 주세요'}
+              </div>
+            </div>
+            <div
+              className={`${styles.toggle} ${pushOn ? styles.toggleOn : ''} ${(!loggedIn || !isPushSupported() || pushBusy) ? styles.toggleDisabled : ''}`}
+              onClick={() => loggedIn && isPushSupported() && handlePushToggle()}
+              role="switch"
+              aria-checked={pushOn}
+            >
+              <div className={styles.toggleThumb} />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -243,9 +310,11 @@ export default function MyPage() {
         본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.
       </div>
 
-      <div className={styles.bottomSection}>
-        <button className={styles.logoutBtn} onClick={handleLogout}>로그아웃</button>
-      </div>
+      {loggedIn && (
+        <div className={styles.bottomSection}>
+          <button className={styles.logoutBtn} onClick={handleLogout}>로그아웃</button>
+        </div>
+      )}
 
       <div style={{ height: '80px' }} />
       <BottomTab />

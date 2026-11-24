@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login, getErrorMessage } from '../api/authApi'
+import { hasGuestMedications, migrateGuestMedications } from '../../medicine/api/medicationStore'
+import Icon from '../../../components/common/Icon'
 import styles from './Auth.module.css'
 
 export default function LoginPage() {
@@ -8,6 +10,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const guestHasMeds = hasGuestMedications()
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -25,6 +28,11 @@ export default function LoginPage() {
       const { token, name } = await login({ email: form.email.trim(), password: form.password })
       localStorage.setItem('token', token)
       localStorage.setItem('nickname', name)
+      // 로그인 전에 등록한 약을 계정으로 옮김 (실패해도 로그인은 진행, 남은 약은 다음 로그인 때 다시 시도)
+      if (guestHasMeds) {
+        const moved = await migrateGuestMedications().catch(() => 0)
+        if (moved > 0) alert(`로그인 전에 등록한 약 ${moved}건을 계정으로 옮겼어요.`)
+      }
       navigate('/home', { replace: true })
     } catch (err) {
       setError(getErrorMessage(err, '이메일 또는 비밀번호가 올바르지 않습니다.'))
@@ -37,8 +45,9 @@ export default function LoginPage() {
     <div className={styles.container}>
       {/* 로고 영역 */}
       <div className={styles.brand}>
-        <div className={styles.logo}>💊</div>
-        <div className={styles.logoText}>약속</div>
+        {/* 홈 화면 YakSok 로고와 같은 아이콘 */}
+        <div className={styles.logo}><Icon name="pill" size={52} strokeWidth={2.2} /></div>
+        <div className={styles.logoText}>YakSok</div>
         <p className={styles.tagline}>나만의 복약 도우미</p>
       </div>
 
@@ -68,6 +77,12 @@ export default function LoginPage() {
           />
         </div>
 
+        {guestHasMeds && (
+          <div className={styles.guestNotice}>
+            로그인하면 이 기기에 저장한 약이 계정으로 옮겨져요.
+          </div>
+        )}
+
         {error && <div className={styles.formError}>{error}</div>}
 
         <button
@@ -86,6 +101,12 @@ export default function LoginPage() {
           onClick={() => navigate('/signup')}
         >
           회원가입
+        </button>
+      </div>
+
+      <div className={styles.guestRow}>
+        <button className={styles.guestLink} onClick={() => navigate('/home')}>
+          로그인 없이 시작하기
         </button>
       </div>
     </div>

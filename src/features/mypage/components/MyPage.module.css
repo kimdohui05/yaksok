@@ -128,3 +128,14 @@
   transition: all 0.13s;
 }
 .logoutBtn:hover { background: #FEECEC; }
+/* 로그인 전(게스트) 프로필 카드 */
+.guestTitle { font-size: 17px; font-weight: 800; color: #fff; }
+.guestBtns { display: flex; gap: 8px; margin-top: 12px; }
+.guestPrimary, .guestSecondary {
+  padding: 8px 16px; border-radius: 10px;
+  font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.guestPrimary { border: none; background: #fff; color: var(--primary-dark); }
+.guestSecondary { border: 1.5px solid rgba(255,255,255,0.7); background: transparent; color: #fff; }
+.toggleDisabled { opacity: 0.45; cursor: not-allowed; }
+.infoCard .settingRow + .settingRow { padding-top: 12px; border-top: 1px solid var(--border); }

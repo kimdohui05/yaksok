@@ -5,23 +5,35 @@ import client from '../../../api/client'
 // 반환 형식:
 // {
 //   prescriptionDate: 'YYYY-MM-DD' | null,
-//   medicines: [{ name, dose, timesPerDay, days, ediCode, verified, originalName }]
+//   qualityWarning: 화질 경고 문구 | null,
+//   medicines: [{ name, dose, timesPerDay, days, ediCode, verified, suggestedName, originalName }]
 // }
 // AI가 읽지 못한 값은 null 로 온다.
-export async function analyzePrescription(file) {
+//
+// onStage(stage, percent): 진행 단계 알림
+//   'preparing' 사진 줄이는 중 → 'uploading' 업로드 중(percent) → 'analyzing' 서버에서 분석·약 이름 확인 중
+export async function analyzePrescription(file, onStage = () => {}) {
+  onStage('preparing')
   const small = await shrinkImage(file)
   const formData = new FormData()
   formData.append('image', small)
 
+  onStage('uploading', 0)
   const res = await client.post('/api/prescriptions/analyze', formData, {
     timeout: 60000, // AI 분석은 오래 걸릴 수 있어서 기본 10초 대신 60초
+    onUploadProgress: (e) => {
+      const percent = e.total ? Math.round((e.loaded / e.total) * 100) : 0
+      // 업로드가 끝나면 서버가 분석하는 동안 기다리는 단계
+      if (percent >= 100) onStage('analyzing')
+      else onStage('uploading', percent)
+    },
   })
   return res.data
 }
 
-// 사진을 긴 쪽 최대 1600px, JPG로 줄인다. 실패하면 원본을 그대로 쓴다.
-// (큰 사진은 Gemini가 붐빌 때 503으로 잘 거절돼서 보내기 전에 줄임)
-function shrinkImage(file, maxSize = 1600, quality = 0.85) {
+// 사진을 긴 쪽 최대 1200px, JPG로 줄인다. 실패하면 원본을 그대로 쓴다.
+// (사진이 작을수록 업로드·분석이 빨라지고, 큰 사진은 Gemini가 붐빌 때 503으로 잘 거절됨)
+function shrinkImage(file, maxSize = 1200, quality = 0.85) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file)
     const img = new Image()

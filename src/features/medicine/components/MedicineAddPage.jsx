@@ -1,19 +1,33 @@
 import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import client from '../../../api/client'
+import { getErrorMessage } from '../../../api/errorMessage'
 import Icon from '../../../components/common/Icon'
+import DateField from '../../../components/common/DateField'
+import TimeField from '../../../components/common/TimeField'
 import styles from './MedicineAddPage.module.css'
+import MedicineNameInput from './MedicineNameInput'
 import { analyzePrescription, defaultTimes } from '../utils/prescription'
 import { checkInteractions } from '../utils/durCheck'
+import { verifyMedicineName } from '../utils/nameCheck'
+import { listMedications, addMedication } from '../api/medicationStore'
 import { CATEGORIES, guessCategory, setCategory } from '../categories'
 
 const today = () => new Date().toISOString().split('T')[0]
+
+// 처방전 분석 진행 단계 (prescription.js의 onStage와 같은 이름)
+const ANALYZE_STAGES = [
+  { key: 'preparing', label: '사진 준비' },
+  { key: 'uploading', label: '사진 업로드' },
+  { key: 'analyzing', label: '처방전 분석 · 약 이름 확인' },
+]
+const DAY_CHIPS = [3, 5, 7, 14, 30]
 
 export default function MedicineAddPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const fileInputRef = useRef(null)
   const keyRef = useRef(0)
+  const analyzingRef = useRef(false) // 분석 중 중복 요청 방지
 
   // 입력 방식 선택: 'photo' | 'manual'
   // 홈의 '촬영 시작'에서 들어오면 바로 사진 모드
@@ -22,7 +36,8 @@ export default function MedicineAddPage() {
   // 공통 상태
   const [step, setStep] = useState(1)
   // 2단계에서 설정할 약 목록 (직접 입력은 1개, 사진은 AI가 읽은 여러 개)
-  // { key, name, ingredient, category, frequency, times }
+  // { key, name, ingredient, dose, category, frequency, times, days, verified, suggestedName }
+  // verified: true 확인된 약 / false 확인되지 않은 약(저장 전 경고) / null 판단 불가
   const [meds, setMeds] = useState([])
   const [saving, setSaving] = useState(false)
   // DUR 병용금기 경고: { [약 key]: [{ name, reasons }] }
@@ -31,31 +46,36 @@ export default function MedicineAddPage() {
   // 사진 모드
   const [photoPreview, setPhotoPreview] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
+  const [stage, setStage] = useState({ key: 'preparing', percent: 0 })
+  const [qualityWarning, setQualityWarning] = useState(null)
 
   // 직접 입력 모드
   const [manualName, setManualName] = useState('')
   const [checking, setChecking] = useState(false)
   const [notFound, setNotFound] = useState(false)
+  const [manualPicked, setManualPicked] = useState(false) // 연관검색어에서 고른 이름이면 확인 생략
 
-  // 처방전 상태
-  const [prescriptionDays, setPrescriptionDays] = useState('')
+  // 처방 시작일 (모든 약 공통, 총 투약 일수는 약마다)
   const [prescriptionDate, setPrescriptionDate] = useState(today())
 
-  const makeMed = (name, ingredient, timesPerDay) => ({
+  const makeMed = (name, ingredient, { timesPerDay, days, dose, verified = null, suggestedName = null } = {}) => ({
     key: ++keyRef.current,
     name,
     ingredient,
+    dose: dose || '',
     category: '', // 비어 있으면 약 이름으로 추정한 카테고리 사용
     frequency: timesPerDay >= 1 && timesPerDay <= 3 ? `하루 ${timesPerDay}회` : '',
     times: timesPerDay ? defaultTimes(timesPerDay) : [''],
+    days: Number(days) > 0 ? String(days) : '',
+    verified,
+    suggestedName: suggestedName && suggestedName !== name ? suggestedName : null,
   })
 
   // ── DUR 병용금기 확인 (실패해도 등록은 진행) ──
   // 약마다 "이미 등록된 내 약 + 이번에 같이 등록하는 다른 약"과 비교
   const recheckInteractions = async (list) => {
     try {
-      const res = await client.get('/medications').catch(() => ({ data: [] }))
-      const existing = res.data || []
+      const existing = await listMedications().catch(() => [])
       const entries = await Promise.all(list.map(async m => {
         if (!m.name.trim()) return [m.key, []]
         const others = [
@@ -73,35 +93,52 @@ export default function MedicineAddPage() {
     setMeds([])
     setInputMode(null)
     setPhotoPreview(null)
+    setQualityWarning(null)
   }
 
   // ── 사진 촬영 ──
-  const handlePhotoClick = () => fileInputRef.current?.click()
+  const handlePhotoClick = () => {
+    if (analyzingRef.current) return
+    fileInputRef.current?.click()
+  }
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0]
     e.target.value = '' // 같은 사진을 다시 골라도 동작하도록
-    if (!file) return
+    if (!file || analyzingRef.current) return
+    analyzingRef.current = true
+    setAnalyzing(true)
+    setStage({ key: 'preparing', percent: 0 })
     const reader = new FileReader()
     reader.onload = async (ev) => {
       setPhotoPreview(ev.target.result)
-      setAnalyzing(true)
       try {
-        const result = await analyzePrescription(file)
-        const recognized = result.medicines.map(m =>
-          makeMed(m.name, 'AI 인식 결과 · 처방전과 비교해 확인해주세요', m.timesPerDay)
+        const result = await analyzePrescription(file, (key, percent = 0) => setStage({ key, percent }))
+        const recognized = (result.medicines || []).map(m =>
+          makeMed(m.name || '', 'AI 인식 결과 · 처방전과 비교해 확인해주세요', {
+            timesPerDay: m.timesPerDay,
+            days: m.days,
+            dose: m.dose,
+            verified: typeof m.verified === 'boolean' ? m.verified : null,
+            suggestedName: m.suggestedName,
+          })
         )
         setMeds(recognized)
         recheckInteractions(recognized)
         setPrescriptionDate(result.prescriptionDate || today())
-        // 처방일수는 처방전 공통 1칸이라, 약마다 다르면 가장 긴 일수로 채움
-        const days = Math.max(0, ...result.medicines.map(m => Number(m.days) || 0))
-        setPrescriptionDays(days ? String(days) : '')
+        // 화질 경고: 문구가 오면 그대로, true 같은 값만 오면 기본 문구
+        setQualityWarning(result.qualityWarning
+          ? (typeof result.qualityWarning === 'string'
+            ? result.qualityWarning
+            : '사진이 흐리거나 어두워서 인식이 정확하지 않을 수 있어요. 처방전과 꼭 비교해 주세요.')
+          : null)
         setStep(2)
-      } catch {
-        alert('처방전 인식에 실패했습니다. 다시 촬영해주세요.')
+      } catch (err) {
+        // 서버가 보낸 오류 문구가 있으면 그대로 표시
+        alert(getErrorMessage(err, '처방전 인식에 실패했습니다. 다시 촬영해주세요.'))
         setPhotoPreview(null)
       } finally {
+        analyzingRef.current = false
         setAnalyzing(false)
       }
     }
@@ -109,31 +146,32 @@ export default function MedicineAddPage() {
   }
 
   // ── 직접 입력 ──
+  // 확인되지 않은 이름이면 막지 않고 경고만 보여주고, 사용자가 '그래도 계속'을 고를 수 있게 함
+  const goManualStep2 = async (verified) => {
+    const list = [makeMed(manualName.trim(), '직접 입력', { verified })]
+    setMeds(list)
+    await recheckInteractions(list)
+    setNotFound(false)
+    setStep(2)
+  }
+
   const handleManualNext = async () => {
-    if (!manualName.trim()) return
+    if (!manualName.trim() || checking) return
+    // 연관검색어 후보에서 고른 약은 이름 확인을 통과한 것으로 처리
+    if (manualPicked) {
+      await goManualStep2(true)
+      return
+    }
     setNotFound(false)
     setChecking(true)
     try {
-      // 일반의약품(e약은요) 또는 병용금기 목록 중 하나라도 있으면 통과
-      const params = { itemName: manualName.trim() }
-      const [info, check] = await Promise.all([
-        client.get('/api/dur/info', { params }),
-        client.get('/api/dur/check', { params }),
-      ])
-      if (info.data.length === 0 && check.data.length === 0) {
+      const verified = await verifyMedicineName(manualName)
+      if (verified === false) {
         setNotFound(true)
         return
       }
-      const list = [makeMed(manualName.trim(), '직접 입력')]
-      setMeds(list)
-      await recheckInteractions(list)
-      setStep(2)
-    } catch {
-      // API 오류 시 그냥 통과 (DUR 서버 문제일 수 있음)
-      const list = [makeMed(manualName.trim(), '직접 입력')]
-      setMeds(list)
-      await recheckInteractions(list)
-      setStep(2)
+      // true(확인됨) 또는 null(서버 오류로 판단 불가)은 그대로 진행
+      await goManualStep2(verified)
     } finally {
       setChecking(false)
     }
@@ -160,6 +198,33 @@ export default function MedicineAddPage() {
       m.key === key ? { ...m, times: m.times.map((t, idx) => (idx === i ? val : t)) } : m
     ))
 
+  // 사진 모드에서 약 이름을 고치면 다시 확인 (고친 뒤 칸을 벗어날 때)
+  const recheckName = async (key, name) => {
+    recheckInteractions(meds)
+    if (!name.trim()) return
+    // 연관검색어에서 고른 뒤 고치지 않았으면 다시 확인하지 않음
+    if (meds.find(m => m.key === key)?.verified === true) return
+    const verified = await verifyMedicineName(name)
+    // 확인하는 동안 이름이 또 바뀌었으면 결과를 버림
+    setMeds(prev => prev.map(m => (m.key === key && m.name === name ? { ...m, verified } : m)))
+  }
+
+  // 연관검색어에서 고른 이름 → 확인된 약
+  const pickName = (key, name) => {
+    const next = meds.map(m => (m.key === key ? { ...m, name, verified: true, suggestedName: null } : m))
+    setMeds(next)
+    recheckInteractions(next)
+  }
+
+  // "혹시 OOO인가요?" → [이 이름으로 바꾸기] (자동으로 바꾸지 않음)
+  const applySuggestion = (key) => {
+    const next = meds.map(m =>
+      m.key === key ? { ...m, name: m.suggestedName, verified: true, suggestedName: null } : m
+    )
+    setMeds(next)
+    recheckInteractions(next)
+  }
+
   const removeMed = (key) => {
     const next = meds.filter(m => m.key !== key)
     setMeds(next)
@@ -167,7 +232,7 @@ export default function MedicineAddPage() {
   }
   const addMed = () => setMeds(prev => [...prev, makeMed('', '직접 추가')])
 
-  // 복용 설정 → 처방 정보로 넘어가기 전 입력 확인
+  // 등록 전 입력 확인
   const validateMeds = () => {
     if (meds.length === 0) {
       alert('등록할 약이 없습니다.')
@@ -189,36 +254,48 @@ export default function MedicineAddPage() {
   const handleSave = async () => {
     if (!validateMeds()) return
 
+    // 확인되지 않은 약은 저장 전에 한 번 더 묻기 (막지는 않음)
+    const unverified = meds.filter(m => m.verified === false)
+    if (unverified.length > 0) {
+      const list = unverified.map(m => `• ${m.name.trim()}`).join('\n')
+      if (!window.confirm(`확인되지 않은 약입니다. 그래도 저장할까요?\n\n${list}`)) return
+    }
+
     setSaving(true)
-    const ids = []
+    const idsByKey = {} // 약 key -> 저장된 id들 (약마다 투약 일수가 달라서 따로 모음)
     const saved = {} // key -> 등록된 시간 값들 (실패 시 중복 등록 방지용)
     let failed = false
+    let failMessage = ''
 
     try {
       for (const m of meds) {
         for (const t of m.times.filter(t => t)) {
-          const res = await client.post('/medications', {
+          const savedMed = await addMedication({
             medicineName: m.name.trim(),
             alarmTime: t + ':00',
           })
-          // 백엔드가 저장된 id를 반환하면 수집
-          if (res.data?.id) ids.push(res.data.id)
+          // 저장된 id를 수집 (게스트는 이 기기에서 만든 id)
+          if (savedMed?.id) (idsByKey[m.key] ||= []).push(savedMed.id)
           if (!saved[m.key]) saved[m.key] = []
           saved[m.key].push(t)
         }
       }
-    } catch {
+    } catch (err) {
       failed = true
+      failMessage = getErrorMessage(err, '')
     }
 
-    // 처방 시작일 + 처방일수를 localStorage에 저장 (약 id별로)
-    if (ids.length > 0) {
+    // 처방 시작일 + 총 투약 일수를 localStorage에 저장 (약 id별로)
+    if (Object.keys(idsByKey).length > 0) {
       try {
         const startDates = JSON.parse(localStorage.getItem('medStartDates') || '{}')
         const prescDays = JSON.parse(localStorage.getItem('medPrescDays') || '{}')
-        ids.forEach(id => {
-          if (prescriptionDate) startDates[String(id)] = prescriptionDate
-          if (prescriptionDays) prescDays[String(id)] = prescriptionDays
+        Object.entries(idsByKey).forEach(([key, ids]) => {
+          const m = meds.find(x => String(x.key) === key)
+          ids.forEach(id => {
+            if (prescriptionDate) startDates[String(id)] = prescriptionDate
+            if (m?.days) prescDays[String(id)] = m.days
+          })
         })
         localStorage.setItem('medStartDates', JSON.stringify(startDates))
         localStorage.setItem('medPrescDays', JSON.stringify(prescDays))
@@ -231,7 +308,7 @@ export default function MedicineAddPage() {
       Object.keys(saved).forEach(key => {
         const m = meds.find(x => String(x.key) === key)
         if (!m) return
-        byName[m.name.trim()] = { startDate: prescriptionDate || '', days: prescriptionDays || '' }
+        byName[m.name.trim()] = { startDate: prescriptionDate || '', days: m.days || '' }
         setCategory(m.name.trim(), m.category || guessCategory(m.name.trim()))
       })
       localStorage.setItem('medPrescByName', JSON.stringify(byName))
@@ -255,15 +332,15 @@ export default function MedicineAddPage() {
         })
         .filter(m => m.times.length > 0)
     )
-    alert(anySaved
+    const base = anySaved
       ? '일부만 등록되었습니다. 남은 항목만 다시 등록해주세요.'
-      : '등록에 실패했습니다. 다시 시도해주세요.')
+      : '등록에 실패했습니다. 다시 시도해주세요.'
+    alert(failMessage ? `${base}\n(${failMessage})` : base)
   }
 
   const stepTitles = {
     1: inputMode === 'manual' ? '약 이름 입력' : inputMode === 'photo' ? '약 사진 촬영' : '약 등록',
     2: '복용 설정',
-    3: '처방전 등록',
   }
 
   const isPhoto = inputMode === 'photo'
@@ -271,10 +348,10 @@ export default function MedicineAddPage() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <button className={styles.backBtn} onClick={() => {
+        <button className={styles.backBtn} disabled={analyzing} onClick={() => {
           if (step > 1) {
             setStep(step - 1)
-            if (step === 2) resetToModeSelect()  // 3 → 2는 입력한 약 그대로 유지
+            if (step === 2) resetToModeSelect()
           } else if (inputMode && step === 1) {
             setInputMode(null)
           } else {
@@ -287,7 +364,7 @@ export default function MedicineAddPage() {
 
       {/* 스텝 인디케이터 */}
       <div className={styles.stepRow}>
-        {['방법 선택', '복용 설정', '처방 정보'].map((label, i) => {
+        {['방법 선택', '복용 설정'].map((label, i) => {
           const s = i + 1
           return (
             <div key={s} className={styles.stepWrap}>
@@ -295,7 +372,7 @@ export default function MedicineAddPage() {
                 <div className={`${styles.stepDot} ${step >= s ? styles.stepActive : ''}`}>{s}</div>
                 <div className={`${styles.stepLabel} ${step >= s ? styles.stepLabelActive : ''}`}>{label}</div>
               </div>
-              {s < 3 && <div className={`${styles.stepLine} ${step > s ? styles.stepLineDone : ''}`} />}
+              {s < 2 && <div className={`${styles.stepLine} ${step > s ? styles.stepLineDone : ''}`} />}
             </div>
           )
         })}
@@ -348,12 +425,32 @@ export default function MedicineAddPage() {
               {analyzing && (
                 <div className={styles.analyzingOverlay}>
                   <div className={styles.spinner} />
-                  <span>약 정보 분석 중...</span>
+                  <ol className={styles.stageList}>
+                    {ANALYZE_STAGES.map((st, i) => {
+                      const current = ANALYZE_STAGES.findIndex(x => x.key === stage.key)
+                      const state = i < current ? 'done' : i === current ? 'now' : 'wait'
+                      return (
+                        <li key={st.key} className={`${styles.stageItem} ${styles['stage_' + state]}`}>
+                          <span className={styles.stageMark}>
+                            {state === 'done' ? <Icon name="check" size={12} strokeWidth={3} /> : i + 1}
+                          </span>
+                          {st.label}
+                          {state === 'now' && st.key === 'uploading' && ` ${stage.percent}%`}
+                          {state === 'now' && st.key !== 'uploading' && ' 중...'}
+                        </li>
+                      )
+                    })}
+                  </ol>
+                  <span className={styles.stageHint}>잠시만 기다려 주세요. 보통 10~20초 걸려요.</span>
                 </div>
               )}
             </div>
           ) : (
-            <div className={styles.cameraWrap} onClick={handlePhotoClick}>
+            <div
+              className={`${styles.cameraWrap} ${analyzing ? styles.cameraDisabled : ''}`}
+              onClick={handlePhotoClick}
+              aria-disabled={analyzing}
+            >
               <Icon name="camera" size={32} className={styles.cameraIcon} />
               <div className={styles.cameraText}>눌러서 사진 촬영 또는 선택</div>
               <div className={styles.cameraSub}>카메라 또는 갤러리에서 선택</div>
@@ -366,6 +463,7 @@ export default function MedicineAddPage() {
             accept="image/*"
             capture="environment"
             style={{ display: 'none' }}
+            disabled={analyzing}
             onChange={handlePhotoChange}
           />
 
@@ -397,18 +495,25 @@ export default function MedicineAddPage() {
 
           <div className={styles.formGroup}>
             <label className={styles.label}>약 이름</label>
-            <input
-              className={`${styles.searchInput} ${notFound ? styles.inputError : ''}`}
-              type="text"
+            <MedicineNameInput
               placeholder="예: 타이레놀, 아스피린..."
               value={manualName}
-              onChange={e => { setManualName(e.target.value); setNotFound(false) }}
-              onKeyDown={e => e.key === 'Enter' && handleManualNext()}
+              onChange={v => { setManualName(v); setNotFound(false); setManualPicked(false) }}
+              onSelect={name => { setManualName(name); setNotFound(false); setManualPicked(true) }}
+              onEnter={handleManualNext}
               autoFocus
             />
             {notFound && (
-              <div className={styles.notFoundMsg}>
-                약이 존재하지 않습니다. 약 이름을 다시 확인해주세요.
+              <div className={styles.unverifiedBox}>
+                <div className={styles.unverifiedTitle}>
+                  <Icon name="warning" size={16} /> 확인되지 않은 약이에요
+                </div>
+                <div className={styles.unverifiedDesc}>
+                  약 정보에서 찾지 못했어요. 이름을 다시 확인하거나, 맞다면 그대로 계속할 수 있어요.
+                </div>
+                <button className={styles.unverifiedBtn} onClick={() => goManualStep2(false)}>
+                  그래도 이 이름으로 계속
+                </button>
               </div>
             )}
           </div>
@@ -427,27 +532,53 @@ export default function MedicineAddPage() {
         </div>
       )}
 
-      {/* Step 2: 약별 복용 설정 (사진 모드는 AI 결과가 미리 채워짐) */}
+      {/* Step 2: 처방 정보 + 약별 복용 설정 한 화면 (사진 모드는 AI가 읽은 값이 모두 미리 채워짐) */}
       {step === 2 && (
         <div className={styles.content}>
+          {qualityWarning && (
+            <div className={styles.qualityWarning}>
+              <Icon name="warning" size={16} />
+              <span>{qualityWarning}</span>
+            </div>
+          )}
+
+          {isPhoto && (
+            <div className={styles.aiNotice}>
+              <Icon name="magic" size={16} />
+              <span>AI가 처방전에서 약 {meds.length}개를 읽었어요. 처방전과 비교해 확인해주세요.</span>
+            </div>
+          )}
+
+          {/* 처방 정보: 모든 약 공통 */}
+          <div className={styles.prescBlock}>
+            <div className={styles.sectionTitle}>처방 정보</div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>처방 시작일</label>
+              <DateField value={prescriptionDate} onChange={setPrescriptionDate} />
+            </div>
+          </div>
+
+          <div className={styles.sectionTitle}>복용 설정</div>
           {meds.map(m => (
             <div key={m.key} className={styles.medBlock}>
               <div className={styles.selectedCard}>
                 <span className={styles.selectedIcon}><Icon name="pill" size={20} /></span>
                 <div className={styles.selectedText}>
                   {isPhoto ? (
-                    <input
-                      className={styles.selectedNameInput}
-                      type="text"
+                    <MedicineNameInput
+                      variant="onDark"
                       value={m.name}
                       placeholder="약 이름"
-                      onChange={e => updateMed(m.key, { name: e.target.value })}
-                      onBlur={() => recheckInteractions(meds)}
+                      onChange={v => updateMed(m.key, { name: v, verified: null, suggestedName: null })}
+                      onSelect={name => pickName(m.key, name)}
+                      onBlur={e => recheckName(m.key, e.target.value)}
                     />
                   ) : (
                     <div className={styles.selectedName}>{m.name}</div>
                   )}
-                  <div className={styles.selectedInfo}>{m.ingredient}</div>
+                  <div className={styles.selectedInfo}>
+                    {m.dose ? `1회 ${m.dose} · ` : ''}{m.ingredient}
+                  </div>
                 </div>
                 {isPhoto && meds.length > 1 && (
                   <button
@@ -457,6 +588,24 @@ export default function MedicineAddPage() {
                   >✕</button>
                 )}
               </div>
+
+              {m.verified === false && (
+                <div className={styles.unverifiedBox}>
+                  <div className={styles.unverifiedTitle}>
+                    <Icon name="warning" size={16} /> 확인되지 않은 약이에요
+                  </div>
+                  {m.suggestedName ? (
+                    <div className={styles.suggestRow}>
+                      <span>혹시 <b>{m.suggestedName}</b>인가요?</span>
+                      <button className={styles.unverifiedBtn} onClick={() => applySuggestion(m.key)}>
+                        이 이름으로 바꾸기
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={styles.unverifiedDesc}>처방전과 비교해 약 이름을 확인해 주세요.</div>
+                  )}
+                </div>
+              )}
 
               {interactions[m.key]?.length > 0 && (
                 <div className={styles.durWarning}>
@@ -499,15 +648,37 @@ export default function MedicineAddPage() {
               </div>
 
               <div className={styles.formGroup}>
+                <label className={styles.label}>총 투약 일수</label>
+                <div className={styles.daysRow}>
+                  {DAY_CHIPS.map(d => (
+                    <button
+                      key={d}
+                      className={`${styles.dayChip} ${m.days === String(d) ? styles.dayChipActive : ''}`}
+                      onClick={() => updateMed(m.key, { days: String(d) })}
+                    >
+                      {d}일
+                    </button>
+                  ))}
+                </div>
+                <div className={styles.daysInputWrap}>
+                  <input
+                    className={styles.searchInput}
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    value={m.days}
+                    onChange={e => updateMed(m.key, { days: e.target.value })}
+                    placeholder="직접 입력"
+                  />
+                  <span className={styles.daysSuffix}>일</span>
+                </div>
+              </div>
+
+              <div className={styles.formGroup}>
                 <label className={styles.label}>복용 시간</label>
                 {m.times.map((t, i) => (
                   <div key={i} className={styles.timeRow}>
-                    <input
-                      className={styles.timeInput}
-                      type="time"
-                      value={t}
-                      onChange={e => updateTime(m.key, i, e.target.value)}
-                    />
+                    <TimeField value={t} onChange={val => updateTime(m.key, i, val)} />
                     {m.times.length > 1 && (
                       <button className={styles.removeBtn} onClick={() => removeTime(m.key, i)}>✕</button>
                     )}
@@ -521,55 +692,6 @@ export default function MedicineAddPage() {
           {isPhoto && (
             <button className={styles.addTimeBtn} onClick={addMed}>＋ 약 추가</button>
           )}
-
-          <div className={styles.btnGroup}>
-            <button className={styles.saveBtn} onClick={() => validateMeds() && setStep(3)}>
-              다음
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: 처방전 등록 (모든 약 공통) */}
-      {step === 3 && (
-        <div className={styles.content}>
-          <div className={styles.prescCard}>
-            <div className={styles.prescCardTitle}>처방전 정보 등록</div>
-            <div className={styles.prescCardDesc}>처방 시작일과 처방일수를 입력해주세요</div>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>처방 시작일</label>
-            <input
-              className={styles.searchInput}
-              type="date"
-              value={prescriptionDate}
-              onChange={e => setPrescriptionDate(e.target.value)}
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>처방일수</label>
-            <div className={styles.daysRow}>
-              {[3, 5, 7, 14, 30, 60, 90].map(d => (
-                <button
-                  key={d}
-                  className={`${styles.dayChip} ${prescriptionDays === String(d) ? styles.dayChipActive : ''}`}
-                  onClick={() => setPrescriptionDays(String(d))}
-                >
-                  {d}일
-                </button>
-              ))}
-            </div>
-            <input
-              className={styles.searchInput}
-              type="number"
-              value={prescriptionDays}
-              onChange={e => setPrescriptionDays(e.target.value)}
-              placeholder="직접 입력 (일)"
-              style={{ marginTop: '8px' }}
-            />
-          </div>
 
           <div className={styles.disclaimer}>
             본 서비스는 의학적 소견을 대체하지 않습니다. 반드시 의사 또는 약사와 상담하세요.

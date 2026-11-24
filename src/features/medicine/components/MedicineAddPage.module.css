@@ -403,3 +403,86 @@
   font-size: 13px;
   cursor: pointer;
 }
+
+/* 2단계: AI 인식 안내 / 섹션 제목 */
+.aiNotice {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px; border-radius: 12px;
+  background: #E3F6FA; color: var(--primary-dark);
+  font-size: 12.5px; font-weight: 600; line-height: 1.5;
+}
+.sectionTitle { font-size: 14px; font-weight: 800; color: var(--text); }
+
+/* 분석 중: 뒤로가기·촬영 막기 */
+.backBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+.cameraDisabled { opacity: 0.5; pointer-events: none; }
+
+/* 분석 진행 단계 */
+.stageList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.stageItem { display: flex; align-items: center; gap: 8px; }
+.stageMark {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  border: 1.5px solid rgba(255,255,255,0.6);
+}
+.stage_done { color: rgba(255,255,255,0.75); }
+.stage_done .stageMark { background: var(--tab-active); border-color: var(--tab-active); }
+.stage_now { color: #fff; }
+.stage_now .stageMark { background: #fff; color: var(--primary-dark); border-color: #fff; }
+.stage_wait { color: rgba(255,255,255,0.45); }
+.stageHint { font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,0.75); }
+
+/* 화질 경고 */
+.qualityWarning {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 12px 14px; border-radius: 12px;
+  background: #FEF7E0; border: 1.5px solid var(--warning);
+  color: #9A6A12; font-size: 12.5px; font-weight: 600; line-height: 1.5;
+}
+.qualityWarning svg { flex-shrink: 0; margin-top: 1px; }
+
+/* 확인되지 않은 약 이름 (경고 후 선택) */
+.unverifiedBox {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #FFF5F5;
+  border: 1.5px solid #FFCDD2;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.unverifiedTitle {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700; color: var(--danger);
+}
+.unverifiedDesc { font-size: 12px; color: #C0444C; line-height: 1.5; }
+.suggestRow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 13px; color: var(--text);
+}
+.unverifiedBtn {
+  align-self: flex-start;
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1.5px solid var(--danger);
+  background: #fff;
+  color: var(--danger);
+  font-size: 12px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.unverifiedBtn:hover { background: #FEECEC; }
+
+/* 총 투약 일수 */
+.daysInputWrap { position: relative; }
+.daysInputWrap .searchInput { padding-right: 36px; }
+.daysSuffix {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  font-size: 14px; color: var(--text-sub); pointer-events: none;
+}

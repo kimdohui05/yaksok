@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import client from '../../../api/client'
+import { listMedications } from '../../medicine/api/medicationStore'
 import BottomTab from '../../../components/common/BottomTab'
 import Icon from '../../../components/common/Icon'
 import styles from './SchedulePage.module.css'
@@ -56,8 +56,8 @@ export default function SchedulePage() {
 
   // API에서 약 목록 불러오기
   useEffect(() => {
-    client.get('/medications')
-      .then(res => setMedicines(res.data || []))
+    listMedications()
+      .then(data => setMedicines(data || []))
       .catch(() => setMedicines([]))
       .finally(() => setLoading(false))
   }, [])

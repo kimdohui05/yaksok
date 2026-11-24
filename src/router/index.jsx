@@ -10,10 +10,6 @@ import MyPage from '../features/mypage/components/MyPage'
 
 const isLoggedIn = () => !!localStorage.getItem('token')
 
-function PrivateRoute({ children }) {
-  return isLoggedIn() ? children : <Navigate to="/login" replace />
-}
-
 function PublicRoute({ children }) {
   return isLoggedIn() ? <Navigate to="/home" replace /> : children
 }
@@ -21,15 +17,17 @@ function PublicRoute({ children }) {
 export default function Router() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to={isLoggedIn() ? '/home' : '/login'} replace />} />
+      {/* 로그인 전(게스트)에도 약 등록·복용 설정을 쓸 수 있도록 홈부터 시작 */}
+      <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
-      <Route path="/home" element={<PrivateRoute><HomePage /></PrivateRoute>} />
-      <Route path="/medicine" element={<PrivateRoute><MedicineListPage /></PrivateRoute>} />
-      <Route path="/medicine/add" element={<PrivateRoute><MedicineAddPage /></PrivateRoute>} />
-      <Route path="/alarm" element={<PrivateRoute><AlarmPage /></PrivateRoute>} />
-      <Route path="/schedule" element={<PrivateRoute><SchedulePage /></PrivateRoute>} />
-      <Route path="/mypage" element={<PrivateRoute><MyPage /></PrivateRoute>} />
+      {/* 게스트도 사용 가능 (게스트 데이터는 이 기기에 저장, 로그인하면 계정으로 옮김) */}
+      <Route path="/home" element={<HomePage />} />
+      <Route path="/medicine" element={<MedicineListPage />} />
+      <Route path="/medicine/add" element={<MedicineAddPage />} />
+      <Route path="/alarm" element={<AlarmPage />} />
+      <Route path="/schedule" element={<SchedulePage />} />
+      <Route path="/mypage" element={<MyPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

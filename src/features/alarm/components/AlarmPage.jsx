@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import client from '../../../api/client'
+import { listMedications } from '../../medicine/api/medicationStore'
 import BottomTab from '../../../components/common/BottomTab'
 import styles from './AlarmPage.module.css'
 
@@ -36,9 +36,9 @@ export default function AlarmPage() {
 
   // 약 목록 API로 불러오기
   useEffect(() => {
-    client.get('/medications')
-      .then(res => {
-        setMedSchedule(res.data.map(m => ({
+    listMedications()
+      .then(data => {
+        setMedSchedule(data.map(m => ({
           id: m.id,
           medicine: m.medicineName,
           time: formatTime(m.alarmTime),

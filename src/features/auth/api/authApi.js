@@ -8,8 +8,5 @@ export const login = ({ email, password }) =>
 export const register = ({ email, password, name }) =>
   client.post('/user/register', { email, password, name })
 
-// 서버 에러 메시지가 있으면 사용하고, 없으면 기본 문구
-export const getErrorMessage = (err, fallback) => {
-  if (!err.response) return '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'
-  return err.response.data?.message || fallback
-}
+// 서버 에러 메시지가 있으면 사용하고, 없으면 기본 문구 (공통 함수 재사용)
+export { getErrorMessage } from '../../../api/errorMessage'

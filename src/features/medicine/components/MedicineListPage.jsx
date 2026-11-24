@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import client from '../../../api/client'
+import { getErrorMessage } from '../../../api/errorMessage'
 import { checkInteractions } from '../utils/durCheck'
+import { listMedications, updateMedication, deleteMedication } from '../api/medicationStore'
 import BottomTab from '../../../components/common/BottomTab'
 import Icon from '../../../components/common/Icon'
+import DateField from '../../../components/common/DateField'
+import TimeField from '../../../components/common/TimeField'
 import { CATEGORIES, getCategory, setCategory, categoryStyle, findInteractions } from '../categories'
 import styles from './MedicineListPage.module.css'
 
@@ -52,8 +56,7 @@ export default function MedicineListPage() {
   const fetchMedicines = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await client.get('/medications')
-      setMedicines(res.data)
+      setMedicines(await listMedications())
     } catch (err) {
       console.error('약 목록 불러오기 실패', err)
     } finally {
@@ -71,7 +74,7 @@ export default function MedicineListPage() {
     if (!window.confirm('이 약을 삭제하시겠습니까?')) return
     setDeletingId(id)
     try {
-      await client.delete(`/medications/${id}`)
+      await deleteMedication(id)
       setMedicines(prev => prev.filter(m => m.id !== id))
       // localStorage에서도 처방 정보 삭제
       try {
@@ -84,7 +87,7 @@ export default function MedicineListPage() {
         setPrescInfo(getPrescInfo())
       } catch {}
     } catch (err) {
-      alert('삭제에 실패했습니다. 다시 시도해주세요.')
+      alert(getErrorMessage(err, '삭제에 실패했습니다. 다시 시도해주세요.'))
     } finally {
       setDeletingId(null)
     }
@@ -196,11 +199,11 @@ export default function MedicineListPage() {
     }
     setEditSaving(true)
     try {
-      const res = await client.put(`/medications/${editModal.id}`, {
+      const updated = await updateMedication(editModal.id, {
         medicineName: editForm.medicineName.trim(),
         alarmTime: editForm.alarmTime + ':00',
       })
-      setMedicines(prev => prev.map(m => m.id === editModal.id ? { ...m, ...res.data } : m))
+      setMedicines(prev => prev.map(m => m.id === editModal.id ? { ...m, ...updated } : m))
 
       // 처방 시작일 / 처방일수 localStorage 갱신
       const startDates = JSON.parse(localStorage.getItem('medStartDates') || '{}')
@@ -221,7 +224,7 @@ export default function MedicineListPage() {
       setEditModal(null)
     } catch (err) {
       console.error('약 수정 실패', err)
-      alert('수정에 실패했습니다. 다시 시도해주세요.')
+      alert(getErrorMessage(err, '수정에 실패했습니다. 다시 시도해주세요.'))
     } finally {
       setEditSaving(false)
     }
@@ -443,22 +446,20 @@ export default function MedicineListPage() {
                   {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.key}</option>)}
                 </select>
               </label>
-              <label className={styles.editField}>
+              <div className={styles.editField}>
                 <span>복용 시간</span>
-                <input
-                  type="time"
+                <TimeField
                   value={editForm.alarmTime}
-                  onChange={e => setEditForm({ ...editForm, alarmTime: e.target.value })}
+                  onChange={val => setEditForm(f => ({ ...f, alarmTime: val }))}
                 />
-              </label>
-              <label className={styles.editField}>
+              </div>
+              <div className={styles.editField}>
                 <span>처방 시작일</span>
-                <input
-                  type="date"
+                <DateField
                   value={editForm.startDate}
-                  onChange={e => setEditForm({ ...editForm, startDate: e.target.value })}
+                  onChange={val => setEditForm(f => ({ ...f, startDate: val }))}
                 />
-              </label>
+              </div>
               <label className={styles.editField}>
                 <span>처방일수 (일)</span>
                 <input
