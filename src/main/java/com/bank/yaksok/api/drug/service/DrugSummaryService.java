@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 /**
  * 약 정보 AI 요약: 효능 요약 + 같이 먹으면 안 되는 음식.
  * 1) 공공데이터에서 약 정보 원문을 찾는다: e약은요(효능·주의사항·상호작용) → 없으면 의약품 허가정보(분류·주성분)
- * 2) 효능은 원문만 근거로 요약한다. 음식은 원문에 있으면 원문, 없으면 주성분 기준 널리 알려진 것만 (GENERAL 표시).
+ * 2) 효능은 원문만 근거로 요약한다. 음식은 이름만 많이 먹는 순으로 최대 5개, 원문에 있으면 원문, 없으면 주성분 기준 널리 알려진 것만 (GENERAL 표시).
  *    약 정보 자체를 못 찾으면 AI 를 부르지 않는다 (지어내지 않게).
  * 3) 같은 약은 서버 메모리에 잠깐 저장해서 다시 부르지 않는다 (속도·할당량 절약).
  */
@@ -44,14 +44,7 @@ public class DrugSummaryService {
             "type", "OBJECT",
             "properties", Map.of(
                     "efficacy", Map.of("type", "STRING", "nullable", true),
-                    "foods", Map.of(
-                            "type", "ARRAY",
-                            "items", Map.of(
-                                    "type", "OBJECT",
-                                    "properties", Map.of(
-                                            "food", Map.of("type", "STRING"),
-                                            "reason", Map.of("type", "STRING")),
-                                    "required", List.of("food", "reason"))),
+                    "foods", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
                     "foodBasis", Map.of("type", "STRING", "enum", List.of("SOURCE", "GENERAL", "NONE"))
             ),
             "required", List.of("foods", "foodBasis")
@@ -102,7 +95,7 @@ public class DrugSummaryService {
                 this::parse,
                 FAILURE_MESSAGES);
 
-        List<DrugSummaryResponse.FoodInteraction> foods = cleanFoods(s.foods());
+        List<String> foods = cleanFoods(s.foods());
         String basis = foods.isEmpty() ? DrugSummaryResponse.BASIS_NONE : cleanBasis(s.foodBasis());
         String notice = DrugSummaryResponse.BASIS_GENERAL.equals(basis)
                 ? DrugSummaryResponse.AI_NOTICE + " " + DrugSummaryResponse.GENERAL_NOTICE
@@ -157,10 +150,10 @@ public class DrugSummaryService {
                 1. efficacy: 이 약이 어디에 쓰는 약인지 1~2문장, 쉬운 우리말로.
                    - 원문에 적힌 효능·분류만 근거로 써라. 원문으로 알 수 없으면 null.
 
-                2. foods: 이 약과 같이 먹거나 마시면 안 되는(조심해야 하는) 음식·음료 목록. 최대 5개.
-                   - food: 음식 이름만 짧게 (예: 술, 자몽주스, 우유, 커피)
-                   - reason: 왜 조심해야 하는지 한 문장, 쉬운 우리말로
-                   - 다른 약 이름은 넣지 마라. 음식·음료(술, 카페인 포함)만 넣어라.
+                2. foods: 이 약과 같이 먹거나 마시면 안 되는(조심해야 하는) 음식·음료 이름 목록. 최대 5개.
+                   - 이유나 설명 없이 음식 이름만 짧게 (예: "술", "자몽주스", "우유", "커피")
+                   - 한국 사람들이 평소에 많이 먹고 마시는 것부터 순서대로 나열해라.
+                   - 다른 약 이름은 넣지 마라. 음식·음료(술, 카페인 음료 포함)만 넣어라.
                    - foodBasis 를 함께 정해라:
                      * 원문에 음식·음료 관련 내용이 있으면 그것만 쓰고 foodBasis = "SOURCE"
                      * 원문에 음식 내용이 없으면, 주성분에 대해 의약품 정보에서 널리 확립된 음식 상호작용만 쓰고 foodBasis = "GENERAL"
@@ -179,16 +172,14 @@ public class DrugSummaryService {
                 """.formatted(facts.itemName(), facts.source(), body);
     }
 
-    /** 빈 항목·중복 음식 제거, 최대 개수 제한 */
-    static List<DrugSummaryResponse.FoodInteraction> cleanFoods(List<GeminiDrugSummary.Food> raw) {
+    /** 빈 값·중복 음식 제거, AI 가 준 순서(많이 먹는 순) 유지, 최대 개수 제한 */
+    static List<String> cleanFoods(List<String> raw) {
         if (raw == null) return List.of();
-        Map<String, DrugSummaryResponse.FoodInteraction> unique = new LinkedHashMap<>();
-        for (GeminiDrugSummary.Food f : raw) {
-            if (f == null) continue;
-            String food = blankToNull(f.food());
-            String reason = blankToNull(f.reason());
-            if (food == null || reason == null) continue;
-            unique.putIfAbsent(food.replaceAll("\\s+", ""), new DrugSummaryResponse.FoodInteraction(food, reason));
+        Map<String, String> unique = new LinkedHashMap<>();
+        for (String f : raw) {
+            String food = blankToNull(f);
+            if (food == null) continue;
+            unique.putIfAbsent(food.replaceAll("\\s+", ""), food);
             if (unique.size() >= MAX_FOODS) break;
         }
         return List.copyOf(unique.values());

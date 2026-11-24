@@ -1,7 +1,6 @@
 package com.bank.yaksok.api.drug.service;
 
 import com.bank.yaksok.api.drug.dto.DrugSummaryResponse;
-import com.bank.yaksok.api.drug.dto.GeminiDrugSummary.Food;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -14,22 +13,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DrugSummaryCleanTest {
 
     @Test
-    void 빈_항목과_중복_음식은_뺀다() {
-        var foods = DrugSummaryService.cleanFoods(Arrays.asList(
-                new Food("술", "간 손상 위험이 커져요."),
-                new Food(" 술 ", "중복"),
-                new Food("", "이름 없음"),
-                new Food("우유", null),
-                null));
-        assertEquals(1, foods.size());
-        assertEquals("술", foods.get(0).food());
+    void 빈_값과_중복_음식은_빼고_순서는_유지한다() {
+        var foods = DrugSummaryService.cleanFoods(Arrays.asList("술", "커피", " 술 ", "", null, "자몽주스"));
+        assertEquals(List.of("술", "커피", "자몽주스"), foods);
     }
 
     @Test
     void 음식은_최대_5개까지만() {
-        List<Food> raw = new ArrayList<>();
-        for (int i = 0; i < 8; i++) raw.add(new Food("음식" + i, "이유"));
-        assertEquals(5, DrugSummaryService.cleanFoods(raw).size());
+        List<String> raw = new ArrayList<>();
+        for (int i = 0; i < 8; i++) raw.add("음식" + i);
+        assertEquals(List.of("음식0", "음식1", "음식2", "음식3", "음식4"), DrugSummaryService.cleanFoods(raw));
     }
 
     @Test

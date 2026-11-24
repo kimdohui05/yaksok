@@ -8,9 +8,6 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GeminiDrugSummary(
         String efficacy,
-        List<Food> foods,
+        List<String> foods,
         String foodBasis
-) {
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Food(String food, String reason) {}
-}
+) {}

@@ -11,15 +11,10 @@ public record DrugSummaryResponse(
         boolean found,                    // 공공데이터에서 약 정보를 찾았는지
         String source,                    // 약 정보 출처: "e약은요" / "의약품 허가정보" / null
         String efficacy,                  // 효능 요약 (어디에 쓰는 약인지)
-        List<FoodInteraction> foods,      // 같이 먹으면 안 되는(조심할) 음식, 없으면 빈 목록
+        List<String> foods,               // 같이 먹으면 안 되는(조심할) 음식 이름, 많이 먹는 순, 최대 5개, 없으면 빈 목록
         String foodBasis,                 // 음식 정보 근거: SOURCE(공공데이터 원문) / GENERAL(AI 일반 지식) / NONE(알려진 것 없음)
         String notice                     // 화면 하단 안내 문구
 ) {
-    public record FoodInteraction(
-            String food,    // 음식 이름 (예: 술, 자몽주스, 우유)
-            String reason   // 왜 안 되는지 (예: 간 손상 위험이 커져요)
-    ) {}
-
     public static final String BASIS_SOURCE = "SOURCE";
     public static final String BASIS_GENERAL = "GENERAL";
     public static final String BASIS_NONE = "NONE";
