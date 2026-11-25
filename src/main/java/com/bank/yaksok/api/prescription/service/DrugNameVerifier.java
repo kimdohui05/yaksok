@@ -46,6 +46,9 @@ public class DrugNameVerifier implements DisposableBean {
     /** 공공데이터 호출용 (호출은 대부분 네트워크 대기라 가상 스레드로 동시에 보낸다) */
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
+    /** 연관검색어는 2글자부터 (1글자는 결과가 너무 많고 의미가 없다) */
+    static final int MIN_AUTOCOMPLETE_LENGTH = 2;
+
     /** 검색어 → 약 이름 목록 (1시간 유지, 최대 1000개) */
     private final TtlCache searchCache = new TtlCache(1000, Duration.ofHours(1));
 
@@ -108,6 +111,17 @@ public class DrugNameVerifier implements DisposableBean {
         if (name == null || name.isBlank()) return List.of();
         String input = name.trim();
         return rankSuggestions(input, candidates(searchKeywords(input)), limit);
+    }
+
+    /**
+     * 연관검색어: 입력한 글자가 들어간 공식 약 이름 (앞글자가 같은 것 먼저, 최대 limit 개).
+     * 검색 결과 캐시를 같이 써서, 같은 글자를 다시 치면 외부 호출이 없다.
+     */
+    public List<String> autocomplete(String query, int limit) {
+        if (query == null) return List.of();
+        String q = query.trim();
+        if (q.length() < MIN_AUTOCOMPLETE_LENGTH) return List.of();
+        return rankAutocomplete(q, candidates(List.of(q)), limit);
     }
 
     /** 이름 검색: 같은 약이거나 한 글자 차이일 때만 결과를 돌려준다. */
@@ -216,6 +230,26 @@ public class DrugNameVerifier implements DisposableBean {
     }
 
     // ───── 아래는 외부 호출 없는 순수 로직 (단위 테스트 대상) ─────
+
+    /**
+     * 연관검색어 정렬: 화면용 이름(괄호 제거)으로 바꾸고 중복 제거 →
+     * 입력으로 시작하는 이름 먼저 → 입력이 앞쪽에 나오는 이름 → 짧은 이름 순.
+     * 입력 글자가 아예 안 들어간 이름은 뺀다.
+     */
+    static List<String> rankAutocomplete(String query, List<String> candidates, int limit) {
+        String q = normalize(query);
+        Set<String> seen = new LinkedHashSet<>();
+        List<String> unique = new ArrayList<>();
+        for (String c : candidates) {
+            if (c == null || c.isBlank()) continue;
+            String display = displayName(c);
+            String key = normalize(display);
+            if (!display.isEmpty() && key.contains(q) && seen.add(key)) unique.add(display);
+        }
+        unique.sort(java.util.Comparator.comparingInt((String c) -> normalize(c).indexOf(q))
+                .thenComparingInt(String::length));
+        return unique.size() > limit ? List.copyOf(unique.subList(0, limit)) : List.copyOf(unique);
+    }
 
     /** 후보를 화면용 이름으로 바꾸고 중복을 뺀 뒤, 입력과 글자 차이가 적은 순(같으면 짧은 이름 먼저)으로 정렬 */
     static List<String> rankSuggestions(String input, List<String> candidates, int limit) {

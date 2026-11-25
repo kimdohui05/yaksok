@@ -78,4 +78,20 @@ class DrugNameVerifierTest {
     void 후보가_없으면_빈_목록() {
         org.junit.jupiter.api.Assertions.assertTrue(DrugNameVerifier.rankSuggestions("아무거나", java.util.List.of(), 5).isEmpty());
     }
+
+    @Test
+    void 연관검색어는_앞글자가_같은_이름_먼저_짧은_순() {
+        var ranked = DrugNameVerifier.rankAutocomplete("타이레놀",
+                java.util.List.of("어린이타이레놀현탁액", "타이레놀정500밀리그람(아세트아미노펜)", "타이레놀정160밀리그램",
+                        "타이레놀정500밀리그람(아세트아미노펜)", "게보린정"),
+                10);
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.List.of("타이레놀정500밀리그람", "타이레놀정160밀리그램", "어린이타이레놀현탁액"), ranked);
+    }
+
+    @Test
+    void 연관검색어는_띄어쓰기를_무시한다() {
+        var ranked = DrugNameVerifier.rankAutocomplete("타이 레놀", java.util.List.of("타이레놀정160밀리그램"), 10);
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of("타이레놀정160밀리그램"), ranked);
+    }
 }
