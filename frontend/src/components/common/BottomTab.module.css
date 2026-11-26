@@ -1,0 +1,64 @@
+.tabBar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 390px;
+  height: 64px;
+  background: #fff;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 100;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+}
+
+.tabItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  cursor: pointer;
+  padding: 8px 4px;
+  flex: 1;
+  height: 100%;
+  background: none;
+  border: none;
+  font-family: inherit;
+  color: var(--tab-inactive);
+  position: relative;
+}
+
+.active { color: var(--tab-active); }
+
+.tabIcon { transition: transform 0.13s; }
+.active .tabIcon { transform: scale(1.08); }
+
+.tabLabel {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.active .tabLabel { font-weight: 700; }
+
+/* 가운데 약 추가 버튼 */
+.fab {
+  position: absolute;
+  top: -18px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--tab-active), var(--primary-dark));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 14px rgba(47,182,209,0.4);
+  transition: transform 0.13s;
+}
+
+.tabItem:hover .fab { transform: translateY(-1px); }
