@@ -94,4 +94,11 @@ class DrugNameVerifierTest {
         var ranked = DrugNameVerifier.rankAutocomplete("타이 레놀", java.util.List.of("타이레놀정160밀리그램"), 10);
         org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of("타이레놀정160밀리그램"), ranked);
     }
+
+    @Test
+    void 짧은_이름은_한글자_차이여도_교정하지_않는다() {
+        org.junit.jupiter.api.Assertions.assertFalse(DrugNameVerifier.isOneCharOff("앙", "앙정"));
+        org.junit.jupiter.api.Assertions.assertFalse(DrugNameVerifier.isOneCharOff("앙정", "앙코정"));
+        org.junit.jupiter.api.Assertions.assertTrue(DrugNameVerifier.isOneCharOff("타이래놀정", "타이레놀정500밀리그람"));
+    }
 }
