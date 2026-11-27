@@ -18,16 +18,34 @@ const saveGuest = (list) => {
 // 게스트 약 id는 서버 id와 겹치지 않게 문자열로
 const newGuestId = () => `guest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
-// → [{ id, medicineName, alarmTime }]
+// 서버가 준 처방 시작일·투약 일수를 기존 화면들이 읽는 localStorage 키(medStartDates / medPrescDays)에 반영
+// (다른 기기에서 등록한 약도 처방 기간이 보이도록)
+const syncPrescInfo = (list) => {
+  try {
+    const startDates = JSON.parse(localStorage.getItem('medStartDates') || '{}')
+    const prescDays = JSON.parse(localStorage.getItem('medPrescDays') || '{}')
+    list.forEach(m => {
+      if (m.startDate) startDates[String(m.id)] = m.startDate
+      if (m.days) prescDays[String(m.id)] = String(m.days)
+    })
+    localStorage.setItem('medStartDates', JSON.stringify(startDates))
+    localStorage.setItem('medPrescDays', JSON.stringify(prescDays))
+  } catch {}
+}
+
+// → [{ id, medicineName, alarmTime, startDate, days }]  (startDate·days 는 없으면 null)
 export async function listMedications() {
   if (isLoggedIn()) {
     const res = await client.get('/medications')
-    return res.data || []
+    const list = res.data || []
+    syncPrescInfo(list)
+    return list
   }
   return loadGuest()
 }
 
-// body: { medicineName, alarmTime: 'HH:mm:ss' } → 저장된 약
+// body: { medicineName, alarmTime: 'HH:mm:ss', startDate?: 'YYYY-MM-DD', days?: number, confirmed? } → 저장된 약
+// 서버는 처방 기간(시작일부터 투약 일수 동안)에만 알림을 보냄
 export async function addMedication(body) {
   if (isLoggedIn()) {
     const res = await client.post('/medications', body)

@@ -199,9 +199,13 @@ export default function MedicineListPage() {
     }
     setEditSaving(true)
     try {
+      const days = Number(editForm.days)
       const updated = await updateMedication(editModal.id, {
         medicineName: editForm.medicineName.trim(),
         alarmTime: editForm.alarmTime + ':00',
+        // 서버는 이 기간에만 알림을 보냄 (비워 두면 기존 값 유지)
+        startDate: editForm.startDate || undefined,
+        days: days >= 1 && days <= 365 ? days : undefined,
       })
       setMedicines(prev => prev.map(m => m.id === editModal.id ? { ...m, ...updated } : m))
 

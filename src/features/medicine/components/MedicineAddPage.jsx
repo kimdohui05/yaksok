@@ -296,9 +296,13 @@ export default function MedicineAddPage() {
     try {
       for (const m of meds) {
         for (const t of m.times.filter(t => t)) {
+          const days = Number(m.days)
           const savedMed = await addMedication({
             medicineName: m.name.trim(),
             alarmTime: t + ':00',
+            // 서버는 이 기간에만 알림을 보냄 (없으면 계속)
+            startDate: prescriptionDate || undefined,
+            days: days >= 1 && days <= 365 ? days : undefined,
           })
           // 저장된 id를 수집 (게스트는 이 기기에서 만든 id)
           if (savedMed?.id) (idsByKey[m.key] ||= []).push(savedMed.id)

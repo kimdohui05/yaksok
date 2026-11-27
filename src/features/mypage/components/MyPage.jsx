@@ -6,6 +6,8 @@ import Icon from '../../../components/common/Icon'
 import { findInteractions } from '../../medicine/categories'
 import { listMedications, isLoggedIn } from '../../medicine/api/medicationStore'
 import { isPushSupported, isPushSubscribed, enablePush, disablePush } from '../../notification/push'
+import { getAlarmEnabledCached, cacheAlarmEnabled, saveAlarmEnabled } from '../../notification/notificationApi'
+import { loadDoneCached, fetchDone } from '../../medicine/api/doseStore'
 import styles from './MyPage.module.css'
 
 // localStorage에서 처방 정보 불러오기
@@ -33,9 +35,9 @@ export default function MyPage() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [medicines, setMedicines] = useState([])
-  const [alarmOn, setAlarmOn] = useState(
-    localStorage.getItem('alarmEnabled') !== 'false'
-  )
+  const [alarmOn, setAlarmOn] = useState(getAlarmEnabledCached) // 서버 복약 알림(메일·PC 알림) 받기
+  const [alarmBusy, setAlarmBusy] = useState(false)
+  const [doneMeds, setDoneMeds] = useState(() => [...loadDoneCached()]) // 오늘 먹은 약 id (서버 기준)
   const [loading, setLoading] = useState(true)
   const [pushOn, setPushOn] = useState(false)       // PC 알림 센터 알림(웹 푸시) 구독 여부
   const [pushBusy, setPushBusy] = useState(false)
@@ -46,20 +48,20 @@ export default function MyPage() {
 
   const medCount = medicines.length
   const warningCount = findInteractions(medicines.map(m => m.medicineName)).length
-  // 홈/일정 화면과 같은 날짜별 키에서 오늘 완료 목록을 읽음
-  const doneMeds = (() => {
-    const d = new Date()
-    const key = `doneMeds_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    try { return JSON.parse(localStorage.getItem(key) || '[]') }
-    catch { return [] }
-  })()
   const pct = medCount > 0 ? Math.round(doneMeds.length / medCount * 100) : 0
 
   useEffect(() => {
     if (isLoggedIn()) {
       client.get('/api/user/profile')
-        .then(res => setProfile(res.data))
+        .then(res => {
+          setProfile(res.data)
+          if (typeof res.data?.alarmEnabled === 'boolean') {
+            setAlarmOn(res.data.alarmEnabled)
+            cacheAlarmEnabled(res.data.alarmEnabled)
+          }
+        })
         .catch(() => {})
+      fetchDone().then(set => setDoneMeds([...set])).catch(() => {})
     }
 
     listMedications()
@@ -88,19 +90,25 @@ export default function MyPage() {
     }
   }
 
+  // 복약 알림 켜기/끄기: 서버에 저장 (끄면 서버가 메일·PC 알림을 보내지 않음)
   const handleAlarmToggle = async () => {
-    if (!alarmOn) {
-      if ('Notification' in window && Notification.permission === 'default') {
-        const result = await Notification.requestPermission()
-        if (result !== 'granted') {
-          alert('브라우저 설정에서 알림을 허용해주세요.')
-          return
-        }
-      }
-    }
+    if (alarmBusy) return
     const next = !alarmOn
+    if (!loggedIn) {
+      setAlarmOn(next)
+      cacheAlarmEnabled(next)
+      return
+    }
     setAlarmOn(next)
-    localStorage.setItem('alarmEnabled', String(next))
+    setAlarmBusy(true)
+    try {
+      await saveAlarmEnabled(next)
+    } catch {
+      setAlarmOn(!next)
+      alert('알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setAlarmBusy(false)
+    }
   }
 
   const handleLogout = async () => {

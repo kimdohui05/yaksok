@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { listMedications } from '../../medicine/api/medicationStore'
+import { loadDoneCached, fetchDone, setDone } from '../../medicine/api/doseStore'
 import BottomTab from '../../../components/common/BottomTab'
 import Icon from '../../../components/common/Icon'
 import styles from './SchedulePage.module.css'
@@ -17,26 +18,6 @@ const formatTime = (alarmTime) => {
   return String(alarmTime).slice(0, 5)
 }
 
-// 복약 완료 여부: localStorage의 doneMeds 키 사용
-const getDoneKey = (date) => {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `doneMeds_${y}-${m}-${d}`
-}
-
-const loadDoneSet = (date) => {
-  try {
-    const raw = localStorage.getItem(getDoneKey(date))
-    return raw ? new Set(JSON.parse(raw)) : new Set()
-  } catch { return new Set() }
-}
-
-const saveDoneSet = (date, set) => {
-  try {
-    localStorage.setItem(getDoneKey(date), JSON.stringify([...set]))
-  } catch {}
-}
 
 export default function SchedulePage() {
   const today = new Date()
@@ -51,8 +32,8 @@ export default function SchedulePage() {
   const [medicines, setMedicines] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // 복약 완료 상태 (날짜별 로컬스토리지)
-  const [doneSet, setDoneSet] = useState(() => loadDoneSet(today))
+  // 복약 완료 상태 (날짜별, 서버 기준 — 캐시로 먼저 그림)
+  const [doneSet, setDoneSet] = useState(() => loadDoneCached(today))
 
   // API에서 약 목록 불러오기
   useEffect(() => {
@@ -62,9 +43,12 @@ export default function SchedulePage() {
       .finally(() => setLoading(false))
   }, [])
 
-  // 선택 날짜 변경 시 완료 상태 업데이트
+  // 선택 날짜 변경 시 완료 상태 업데이트 (응답이 늦게 와도 다른 날짜 값으로 덮어쓰지 않음)
   useEffect(() => {
-    setDoneSet(loadDoneSet(selectedDate))
+    let current = true
+    setDoneSet(loadDoneCached(selectedDate))
+    fetchDone(selectedDate).then(set => { if (current) setDoneSet(set) }).catch(() => {})
+    return () => { current = false }
   }, [selectedDate])
 
   // localStorage에서 약별 처방 정보(시작일/처방일수) 불러오기
@@ -135,14 +119,21 @@ export default function SchedulePage() {
 
   const schedule = buildSchedule()
 
-  // 복약 완료 토글
-  const toggleDone = (medId) => {
+  // 복약 완료 토글 (서버 저장, 실패하면 되돌림)
+  const toggleDone = async (medId) => {
     const key = String(medId)
+    const done = !doneSet.has(key)
+    const date = selectedDate
     const next = new Set(doneSet)
-    if (next.has(key)) next.delete(key)
-    else next.add(key)
+    if (done) next.add(key)
+    else next.delete(key)
     setDoneSet(next)
-    saveDoneSet(selectedDate, next)
+    try {
+      await setDone(medId, done, date)
+    } catch {
+      setDoneSet(loadDoneCached(date))
+      alert('복용 기록을 저장하지 못했어요. 잠시 후 다시 시도해주세요.')
+    }
   }
 
   const weekDates = Array.from({ length: 7 }, (_, i) => {

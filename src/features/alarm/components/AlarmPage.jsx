@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
-import { listMedications } from '../../medicine/api/medicationStore'
+import { listMedications, isLoggedIn } from '../../medicine/api/medicationStore'
+import {
+  getAlarmEnabledCached, cacheAlarmEnabled, saveAlarmEnabled,
+  listNotifications, readAllNotifications,
+} from '../../notification/notificationApi'
+import client from '../../../api/client'
 import BottomTab from '../../../components/common/BottomTab'
 import styles from './AlarmPage.module.css'
 
@@ -13,103 +18,88 @@ const formatTime = (alarmTime) => {
   return String(alarmTime).substring(0, 5)
 }
 
-const requestPermission = async () => {
-  if (!('Notification' in window)) return false
-  if (Notification.permission === 'granted') return true
-  const result = await Notification.requestPermission()
-  return result === 'granted'
+// "2026-11-27T08:00:00" (또는 [2026, 11, 27, 8, 0]) → "오늘 오전 8:00" / "어제 오후 9:30" / "11월 25일 오전 8:00"
+const formatAlarmAt = (alarmAt) => {
+  if (!alarmAt) return ''
+  const d = Array.isArray(alarmAt)
+    ? new Date(alarmAt[0], alarmAt[1] - 1, alarmAt[2], alarmAt[3] || 0, alarmAt[4] || 0)
+    : new Date(String(alarmAt))
+  if (Number.isNaN(d.getTime())) return ''
+  const h = d.getHours()
+  const time = `${h < 12 ? '오전' : '오후'} ${h % 12 === 0 ? 12 : h % 12}:${String(d.getMinutes()).padStart(2, '0')}`
+  const today = new Date()
+  const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const diffDays = Math.round((startOf(today) - startOf(d)) / 86400000)
+  if (diffDays === 0) return `오늘 ${time}`
+  if (diffDays === 1) return `어제 ${time}`
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${time}`
 }
 
-const sendNotification = (title, body) => {
-  if (Notification.permission !== 'granted') return
-  new Notification(title, { body, icon: '💊', badge: '💊' })
-}
-
+// 복약 알림은 서버가 보냄 (PC 알림 센터 + 메일). 이 화면은 서버에 기록된 알림 내역과 알림 켜기/끄기만 담당
 export default function AlarmPage() {
+  const loggedIn = isLoggedIn()
   const [medSchedule, setMedSchedule] = useState([])
   const [alarms, setAlarms] = useState([])
-  const [permission, setPermission] = useState(Notification.permission)
-  const [alarmEnabled, setAlarmEnabled] = useState(
-    localStorage.getItem('alarmEnabled') !== 'false'
-  )
+  const [loadingAlarms, setLoadingAlarms] = useState(loggedIn)
+  const [alarmEnabled, setAlarmEnabled] = useState(getAlarmEnabledCached)
+  const [alarmBusy, setAlarmBusy] = useState(false)
   const unreadCnt = alarms.filter(a => !a.read).length
 
-  // 약 목록 API로 불러오기
+  // 오늘 복약 일정 (약 목록)
   useEffect(() => {
     listMedications()
       .then(data => {
-        setMedSchedule(data.map(m => ({
-          id: m.id,
-          medicine: m.medicineName,
-          time: formatTime(m.alarmTime),
-        })))
+        setMedSchedule(data
+          .map(m => ({ id: m.id, medicine: m.medicineName, time: formatTime(m.alarmTime) }))
+          .sort((a, b) => a.time.localeCompare(b.time)))
       })
       .catch(err => console.error('약 목록 불러오기 실패', err))
   }, [])
 
-  // 알림 페이지 들어오면 즉시 unreadAlarm 읽음 처리
+  // 서버 알림 내역 + 알림 설정. 들어오면 모두 읽음 처리 (화면에는 안 읽었던 표시를 남겨 둠)
   useEffect(() => {
-    localStorage.setItem('unreadAlarm', 'false')
-  }, [])
-
-  // 알림 권한 요청
-  useEffect(() => {
-    if (alarmEnabled) {
-      requestPermission().then(granted => {
-        setPermission(granted ? 'granted' : 'denied')
+    if (!loggedIn) return
+    listNotifications()
+      .then(list => {
+        setAlarms(list)
+        if (list.some(a => !a.read)) readAllNotifications().catch(() => {})
       })
-    }
-  }, [alarmEnabled])
+      .catch(err => console.error('알림 내역 불러오기 실패', err))
+      .finally(() => setLoadingAlarms(false))
 
-  // 복약 시간 체크 (1분마다)
-  useEffect(() => {
-    if (!alarmEnabled || permission !== 'granted' || medSchedule.length === 0) return
-
-    const checkAlarm = () => {
-      const now = new Date()
-      const hh = String(now.getHours()).padStart(2, '0')
-      const mm = String(now.getMinutes()).padStart(2, '0')
-      const currentTime = `${hh}:${mm}`
-
-      medSchedule.forEach(med => {
-        if (med.time === currentTime) {
-          sendNotification('💊 복약 시간이에요!', `${med.medicine} 복용할 시간입니다.`)
-          setAlarms(prev => [{
-            id: Date.now(),
-            medicine: med.medicine,
-            time: `오늘 ${now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`,
-            read: false,
-            type: 'reminder',
-          }, ...prev])
-          localStorage.setItem('unreadAlarm', 'true')
+    client.get('/api/user/profile')
+      .then(res => {
+        if (typeof res.data?.alarmEnabled === 'boolean') {
+          setAlarmEnabled(res.data.alarmEnabled)
+          cacheAlarmEnabled(res.data.alarmEnabled)
         }
       })
-    }
-
-    checkAlarm()
-    const interval = setInterval(checkAlarm, 60000)
-    return () => clearInterval(interval)
-  }, [alarmEnabled, permission, medSchedule])
-
-  const markRead = (id) => setAlarms(prev => prev.map(a => a.id === id ? { ...a, read: true } : a))
+      .catch(() => {})
+  }, [loggedIn])
 
   const markAllRead = () => {
     setAlarms(prev => prev.map(a => ({ ...a, read: true })))
-    localStorage.setItem('unreadAlarm', 'false')
+    readAllNotifications().catch(() => {})
   }
 
+  // 복약 알림 켜기/끄기: 서버에 저장 (끄면 서버가 메일·PC 알림을 보내지 않음)
   const toggleAlarm = async () => {
-    if (!alarmEnabled) {
-      const granted = await requestPermission()
-      setPermission(granted ? 'granted' : 'denied')
-      if (!granted) {
-        alert('브라우저 설정에서 알림을 허용해주세요.')
-        return
-      }
-    }
+    if (alarmBusy) return
     const next = !alarmEnabled
     setAlarmEnabled(next)
-    localStorage.setItem('alarmEnabled', String(next))
+    if (!loggedIn) {
+      cacheAlarmEnabled(next)
+      return
+    }
+    setAlarmBusy(true)
+    try {
+      await saveAlarmEnabled(next)
+    } catch {
+      setAlarmEnabled(!next)
+      alert('알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setAlarmBusy(false)
+    }
   }
 
   return (
@@ -128,16 +118,16 @@ export default function AlarmPage() {
         <div className={styles.settingInfo}>
           <div className={styles.settingTitle}>복약 알림</div>
           <div className={styles.settingDesc}>
-            {permission === 'denied'
-              ? '⚠️ 브라우저 설정에서 알림을 허용해주세요'
-              : alarmEnabled
-              ? '✅ 복약 시간마다 알림을 받고 있어요'
-              : '🔕 알림이 꺼져 있어요'}
+            {alarmEnabled
+              ? '복약 시간마다 PC 알림과 메일로 알려드려요'
+              : '알림이 꺼져 있어요'}
           </div>
         </div>
         <div
           className={`${styles.toggle} ${alarmEnabled ? styles.toggleOn : ''}`}
           onClick={toggleAlarm}
+          role="switch"
+          aria-checked={alarmEnabled}
         >
           <div className={styles.toggleThumb} />
         </div>
@@ -161,30 +151,26 @@ export default function AlarmPage() {
         )}
       </div>
 
-      {/* 알림 목록 */}
+      {/* 알림 내역 (서버에서 보낸 복약 알림) */}
       <div className={styles.sectionTitle}>알림 내역</div>
       <div className={styles.list}>
-        {alarms.length === 0 ? (
+        {loadingAlarms ? (
+          <div className={styles.empty}><p>불러오는 중...</p></div>
+        ) : alarms.length === 0 ? (
           <div className={styles.empty}>
             <span>🔔</span>
             <p>알림이 없습니다</p>
           </div>
         ) : (
           alarms.map(a => (
-            <div
-              key={a.id}
-              className={`${styles.alarmItem} ${!a.read ? styles.unread : ''} ${a.type === 'warning' ? styles.warningItem : ''}`}
-              onClick={() => markRead(a.id)}
-            >
+            <div key={a.id} className={`${styles.alarmItem} ${!a.read ? styles.unread : ''}`}>
               <div className={styles.alarmIconWrap}>
-                <span className={styles.alarmIcon}>{a.type === 'warning' ? '⚠️' : '💊'}</span>
+                <span className={styles.alarmIcon}>💊</span>
               </div>
               <div className={styles.alarmInfo}>
-                <div className={styles.alarmTitle}>
-                  {a.type === 'warning' ? `${a.medicine} 상호작용 경고` : `${a.medicine} 복약 시간`}
-                </div>
-                {a.msg && <div className={styles.alarmMsg}>{a.msg}</div>}
-                <div className={styles.alarmTime}>{a.time}</div>
+                <div className={styles.alarmTitle}>{a.title}</div>
+                {a.body && <div className={styles.alarmMsg}>{a.body}</div>}
+                <div className={styles.alarmTime}>{formatAlarmAt(a.alarmAt)}</div>
               </div>
               {!a.read && <div className={styles.dot} />}
             </div>

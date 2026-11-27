@@ -4,6 +4,8 @@ import { listMedications, isLoggedIn } from '../../medicine/api/medicationStore'
 import BottomTab from '../../../components/common/BottomTab'
 import Icon from '../../../components/common/Icon'
 import { isPushSupported, enablePush } from '../../notification/push'
+import { getUnreadCount } from '../../notification/notificationApi'
+import { loadDoneCached, fetchDone, setDone } from '../../medicine/api/doseStore'
 import styles from './HomePage.module.css'
 
 const formatTime = (alarmTime) => {
@@ -23,23 +25,13 @@ const toKoreanTime = (hhmm) => {
   return `${h < 12 ? '오전' : '오후'} ${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')}`
 }
 
-// 일정 화면과 같은 키로 오늘 복약 완료 상태를 저장
-const todayKey = () => {
-  const d = new Date()
-  return `doneMeds_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-const loadDone = () => {
-  try { return new Set(JSON.parse(localStorage.getItem(todayKey()) || '[]')) }
-  catch { return new Set() }
-}
 
 export default function HomePage() {
   const navigate = useNavigate()
   const loggedIn = isLoggedIn()
   const nickname = localStorage.getItem('nickname') || '사용자'
   const [meds, setMeds] = useState([])
-  const [doneSet, setDoneSet] = useState(loadDone)
+  const [doneSet, setDoneSet] = useState(() => loadDoneCached()) // 오늘 먹은 약 (서버 기준, 캐시로 먼저 그림)
   const [loading, setLoading] = useState(true)
   const [hasUnread, setHasUnread] = useState(false)
   // 처음 한 번만: 로그인했고, 아직 알림 허용 여부를 정하지 않았으면 PC 알림 안내
@@ -70,25 +62,39 @@ export default function HomePage() {
       })
       .catch(err => console.error('약 목록 불러오기 실패', err))
       .finally(() => setLoading(false))
+    fetchDone().then(setDoneSet).catch(() => {})
   }, [])
 
-  // 페이지 포커스될 때마다 unreadAlarm 체크
+  // 페이지 포커스될 때마다 안 읽은 알림 확인 (서버 알림 기록 기준)
   useEffect(() => {
+    if (!loggedIn) return
     const checkUnread = () => {
-      setHasUnread(localStorage.getItem('unreadAlarm') === 'true')
+      getUnreadCount().then(count => setHasUnread(count > 0)).catch(() => {})
     }
     checkUnread()
     window.addEventListener('focus', checkUnread)
     return () => window.removeEventListener('focus', checkUnread)
-  }, [])
+  }, [loggedIn])
 
-  const toggleDone = (id) => {
-    const next = new Set(doneSet)
+  // 먹었어요 / 취소: 서버에 저장 (먼저 먹은 약은 알림이 오지 않음)
+  const toggleDone = async (id) => {
     const key = String(id)
-    if (next.has(key)) next.delete(key)
-    else next.add(key)
+    const done = !doneSet.has(key)
+    const next = new Set(doneSet)
+    if (done) next.add(key)
+    else next.delete(key)
     setDoneSet(next)
-    try { localStorage.setItem(todayKey(), JSON.stringify([...next])) } catch {}
+    try {
+      await setDone(id, done)
+    } catch {
+      setDoneSet(prev => {
+        const back = new Set(prev)
+        if (done) back.delete(key)
+        else back.add(key)
+        return back
+      })
+      alert('복용 기록을 저장하지 못했어요. 잠시 후 다시 시도해주세요.')
+    }
   }
 
   const now = new Date()
@@ -107,7 +113,6 @@ export default function HomePage() {
   }
 
   const handleAlarmClick = () => {
-    localStorage.setItem('unreadAlarm', 'false')
     setHasUnread(false)
     navigate('/alarm')
   }
