@@ -1,20 +1,27 @@
 import client from '../../../api/client'
 
-// 약 이름이 실제 약인지 확인
-// 일반의약품(e약은요) 또는 병용금기 목록 중 하나라도 있으면 확인된 약
-// → true(확인됨) / false(확인되지 않음) / null(서버 오류로 판단 불가 — 경고하지 않음)
-export async function verifyMedicineName(name) {
-  const itemName = (name || '').trim()
-  if (!itemName) return null
+// 약 이름 확인 (서버 GET /api/drugs/verify — 약 저장 검증과 같은 기준, 식약처 의약품 허가정보: 전문약·일반약 전체)
+// → { verified, name, message, suggestions } / null(서버 오류로 판단 불가)
+//   verified: true  → name 에 확인된 이름 (한 글자 오타는 공식 이름으로 고쳐져서 옴)
+//   verified: false → message("그런 약은 존재하지 않습니다."), suggestions(비슷한 약 이름, 최대 5개)
+export async function checkMedicineName(name) {
+  const trimmed = (name || '').trim()
+  if (!trimmed) return null
   try {
-    const params = { itemName }
-    const [info, check] = await Promise.all([
-      client.get('/api/dur/info', { params }),
-      client.get('/api/dur/check', { params }),
-    ])
-    const found = (res) => Array.isArray(res.data) && res.data.length > 0
-    return found(info) || found(check)
+    const { data } = await client.get('/api/drugs/verify', { params: { name: trimmed } })
+    return {
+      verified: data?.verified === true,
+      name: data?.name || trimmed,
+      message: data?.message || '그런 약은 존재하지 않습니다.',
+      suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
+    }
   } catch {
     return null
   }
+}
+
+// true(확인됨) / false(확인되지 않음) / null(서버 오류로 판단 불가)
+export async function verifyMedicineName(name) {
+  const result = await checkMedicineName(name)
+  return result ? result.verified : null
 }

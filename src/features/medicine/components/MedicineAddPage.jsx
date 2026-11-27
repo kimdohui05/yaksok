@@ -8,7 +8,7 @@ import styles from './MedicineAddPage.module.css'
 import MedicineNameInput from './MedicineNameInput'
 import { analyzePrescription, defaultTimes } from '../utils/prescription'
 import { checkInteractions } from '../utils/durCheck'
-import { verifyMedicineName } from '../utils/nameCheck'
+import { checkMedicineName } from '../utils/nameCheck'
 import { listMedications, addMedication } from '../api/medicationStore'
 import { CATEGORIES, guessCategory, setCategory } from '../categories'
 
@@ -52,7 +52,7 @@ export default function MedicineAddPage() {
   // 직접 입력 모드
   const [manualName, setManualName] = useState('')
   const [checking, setChecking] = useState(false)
-  const [notFound, setNotFound] = useState(false)
+  const [notFound, setNotFound] = useState(null) // { message, suggestions } — 확인 안 된 이름이면 다음으로 못 넘어감
   const [manualPicked, setManualPicked] = useState(false) // 연관검색어에서 고른 이름이면 확인 생략
 
   // 처방 시작일 (모든 약 공통, 총 투약 일수는 약마다)
@@ -146,12 +146,12 @@ export default function MedicineAddPage() {
   }
 
   // ── 직접 입력 ──
-  // 확인되지 않은 이름이면 막지 않고 경고만 보여주고, 사용자가 '그래도 계속'을 고를 수 있게 함
-  const goManualStep2 = async (verified) => {
-    const list = [makeMed(manualName.trim(), '직접 입력', { verified })]
+  // 서버에서 확인된 약만 2단계로 넘어감 (없는 약이면 1단계에서 막음)
+  const goManualStep2 = async (name = manualName.trim()) => {
+    const list = [makeMed(name, '직접 입력', { verified: true })]
     setMeds(list)
     await recheckInteractions(list)
-    setNotFound(false)
+    setNotFound(null)
     setStep(2)
   }
 
@@ -159,19 +159,25 @@ export default function MedicineAddPage() {
     if (!manualName.trim() || checking) return
     // 연관검색어 후보에서 고른 약은 이름 확인을 통과한 것으로 처리
     if (manualPicked) {
-      await goManualStep2(true)
+      await goManualStep2()
       return
     }
-    setNotFound(false)
+    setNotFound(null)
     setChecking(true)
     try {
-      const verified = await verifyMedicineName(manualName)
-      if (verified === false) {
-        setNotFound(true)
+      const result = await checkMedicineName(manualName)
+      if (!result) {
+        // 서버 오류로 확인 못 함 → 넘어가지 않음
+        setNotFound({ message: '약 이름을 확인하지 못했어요. 잠시 후 다시 시도해주세요.', suggestions: [] })
         return
       }
-      // true(확인됨) 또는 null(서버 오류로 판단 불가)은 그대로 진행
-      await goManualStep2(verified)
+      if (!result.verified) {
+        setNotFound({ message: result.message, suggestions: result.suggestions })
+        return
+      }
+      // 한 글자 오타는 서버가 고친 공식 이름으로 넘어감
+      setManualName(result.name)
+      await goManualStep2(result.name)
     } finally {
       setChecking(false)
     }
@@ -204,9 +210,11 @@ export default function MedicineAddPage() {
     if (!name.trim()) return
     // 연관검색어에서 고른 뒤 고치지 않았으면 다시 확인하지 않음
     if (meds.find(m => m.key === key)?.verified === true) return
-    const verified = await verifyMedicineName(name)
+    const result = await checkMedicineName(name)
+    const verified = result ? result.verified : null
+    const suggestedName = result && !result.verified ? (result.suggestions[0] || null) : null
     // 확인하는 동안 이름이 또 바뀌었으면 결과를 버림
-    setMeds(prev => prev.map(m => (m.key === key && m.name === name ? { ...m, verified } : m)))
+    setMeds(prev => prev.map(m => (m.key === key && m.name === name ? { ...m, verified, suggestedName } : m)))
   }
 
   // 연관검색어에서 고른 이름 → 확인된 약
@@ -498,22 +506,34 @@ export default function MedicineAddPage() {
             <MedicineNameInput
               placeholder="예: 타이레놀, 아스피린..."
               value={manualName}
-              onChange={v => { setManualName(v); setNotFound(false); setManualPicked(false) }}
-              onSelect={name => { setManualName(name); setNotFound(false); setManualPicked(true) }}
+              onChange={v => { setManualName(v); setNotFound(null); setManualPicked(false) }}
+              onSelect={name => { setManualName(name); setNotFound(null); setManualPicked(true) }}
               onEnter={handleManualNext}
               autoFocus
             />
             {notFound && (
               <div className={styles.unverifiedBox}>
                 <div className={styles.unverifiedTitle}>
-                  <Icon name="warning" size={16} /> 확인되지 않은 약이에요
+                  <Icon name="warning" size={16} /> {notFound.message}
                 </div>
-                <div className={styles.unverifiedDesc}>
-                  약 정보에서 찾지 못했어요. 이름을 다시 확인하거나, 맞다면 그대로 계속할 수 있어요.
-                </div>
-                <button className={styles.unverifiedBtn} onClick={() => goManualStep2(false)}>
-                  그래도 이 이름으로 계속
-                </button>
+                {notFound.suggestions.length > 0 ? (
+                  <>
+                    <div className={styles.unverifiedDesc}>혹시 이 약인가요?</div>
+                    {notFound.suggestions.map(s => (
+                      <div key={s} className={styles.suggestRow}>
+                        <span>{s}</span>
+                        <button
+                          className={styles.unverifiedBtn}
+                          onClick={() => { setManualName(s); setNotFound(null); setManualPicked(true) }}
+                        >
+                          이 약으로 바꾸기
+                        </button>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div className={styles.unverifiedDesc}>약 이름을 다시 확인해주세요.</div>
+                )}
               </div>
             )}
           </div>
