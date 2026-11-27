@@ -62,3 +62,10 @@
 }
 
 .tabItem:hover .fab { transform: translateY(-1px); }
+
+/* 가운데 탭: 글자를 올라간 버튼 바로 아래에 붙임
+   버튼이 탭 위쪽 -18px ~ 30px 을 차지하므로, 다른 탭과 같은 간격(3px)을 두고 33px 부터 시작 */
+.centerItem {
+  justify-content: flex-start;
+  padding-top: 33px;
+}

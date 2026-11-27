@@ -22,7 +22,7 @@ export default function BottomTab() {
           <button
             key={tab.path}
             type="button"
-            className={`${styles.tabItem} ${active ? styles.active : ''}`}
+            className={`${styles.tabItem} ${tab.center ? styles.centerItem : ''} ${active ? styles.active : ''}`}
             onClick={() => navigate(tab.path)}
           >
             {tab.center ? (
