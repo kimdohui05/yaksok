@@ -486,3 +486,11 @@
   position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
   font-size: 14px; color: var(--text-sub); pointer-events: none;
 }
+
+/* 약 이름 확인 실패 문구 (직접 입력 1단계) */
+.nameError {
+  margin: 6px 2px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}

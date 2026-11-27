@@ -168,7 +168,7 @@ export default function MedicineAddPage() {
       const result = await checkMedicineName(manualName)
       if (!result) {
         // 서버 오류로 확인 못 함 → 넘어가지 않음
-        setNotFound({ message: '약 이름을 확인하지 못했어요. 잠시 후 다시 시도해주세요.', suggestions: [] })
+        setNotFound({ message: '약 이름을 확인하지 못했어요.', suggestions: [] })
         return
       }
       if (!result.verified) {
@@ -512,29 +512,7 @@ export default function MedicineAddPage() {
               autoFocus
             />
             {notFound && (
-              <div className={styles.unverifiedBox}>
-                <div className={styles.unverifiedTitle}>
-                  <Icon name="warning" size={16} /> {notFound.message}
-                </div>
-                {notFound.suggestions.length > 0 ? (
-                  <>
-                    <div className={styles.unverifiedDesc}>혹시 이 약인가요?</div>
-                    {notFound.suggestions.map(s => (
-                      <div key={s} className={styles.suggestRow}>
-                        <span>{s}</span>
-                        <button
-                          className={styles.unverifiedBtn}
-                          onClick={() => { setManualName(s); setNotFound(null); setManualPicked(true) }}
-                        >
-                          이 약으로 바꾸기
-                        </button>
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <div className={styles.unverifiedDesc}>약 이름을 다시 확인해주세요.</div>
-                )}
-              </div>
+              <p className={styles.nameError}>{notFound.message}</p>
             )}
           </div>
 
