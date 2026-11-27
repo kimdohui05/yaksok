@@ -1,5 +1,6 @@
 package com.bank.yaksok.api.prescription.service;
 
+import com.bank.yaksok.api.drug.service.DrugCategory;
 import com.bank.yaksok.api.dur.client.DrugPermitApiClient;
 import com.bank.yaksok.api.dur.dto.DrugInfoResponse;
 import com.bank.yaksok.api.dur.dto.DrugPermitResponse;
@@ -53,7 +54,10 @@ public class DrugNameVerifier implements DisposableBean {
     static final int MIN_AUTOCOMPLETE_LENGTH = 2;
 
     /** 검색어 → 약 이름 목록 (1시간 유지, 최대 1000개) */
-    private final TtlCache searchCache = new TtlCache(1000, Duration.ofHours(1));
+    private final TtlCache<List<String>> searchCache = new TtlCache<>(1000, Duration.ofHours(1));
+
+    /** 공식 약 이름(정규화) → 허가정보 항목 (분류·주성분으로 카테고리를 정할 때 사용) */
+    private final TtlCache<DrugPermitResponse.Item> itemCache = new TtlCache<>(5000, Duration.ofHours(1));
 
     /**
      * @param name          화면에 보여줄 이름 (확인되면 그대로 또는 한 글자 교정된 이름)
@@ -127,6 +131,21 @@ public class DrugNameVerifier implements DisposableBean {
         return rankAutocomplete(q, candidates(List.of(q)), limit);
     }
 
+    /**
+     * 확인된 약의 카테고리 (식약처 분류·주성분 기준, 프론트 categories.js 의 key).
+     * verify 직후라면 검색 결과가 캐시에 있어 외부 호출이 없다. 정할 수 없으면 null.
+     */
+    public String categoryOf(String name) {
+        if (name == null || name.isBlank()) return null;
+        String input = name.trim();
+        List<String> candidates = candidates(searchKeywords(input));
+        String matched = findSame(input, candidates);
+        if (matched == null) matched = findOneCharOff(input, candidates);
+        if (matched == null) return null;
+        DrugPermitResponse.Item item = itemCache.get(normalize(matched));
+        return item == null ? null : DrugCategory.of(item.productType(), item.ingredient());
+    }
+
     /** 이름 검색: 같은 약이거나 한 글자 차이일 때만 결과를 돌려준다. */
     private Result searchByName(String aiName) {
         List<String> candidates = candidates(searchKeywords(aiName));
@@ -183,7 +202,13 @@ public class DrugNameVerifier implements DisposableBean {
     }
 
     private List<String> permitNames(String keyword) {
-        return cached("permit:" + keyword, () -> activeNames(drugPermitApiClient.searchByName(keyword)));
+        return cached("permit:" + keyword, () -> {
+            List<DrugPermitResponse.Item> items = drugPermitApiClient.searchByName(keyword);
+            for (DrugPermitResponse.Item item : items) {
+                if (item.isActive() && item.itemName() != null) itemCache.put(normalize(item.itemName()), item);
+            }
+            return activeNames(items);
+        });
     }
 
     private List<String> easyDrugNames(String keyword) {
