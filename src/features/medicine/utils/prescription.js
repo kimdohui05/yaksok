@@ -63,9 +63,16 @@ function shrinkImage(file, maxSize = 1200, quality = 0.85) {
 }
 
 // 하루 복용 횟수 → 기본 복용 시간
+// 하루 N회 → 빈 시간 칸 N개 (시간은 사용자가 직접 고름, 시간 선택 창은 현재 시각으로 열림)
 export function defaultTimes(n) {
-  if (n === 1) return ['08:00']
-  if (n === 2) return ['08:00', '19:00']
-  if (n === 3) return ['08:00', '13:00', '19:00']
-  return Array.from({ length: n }, () => '')
+  return Array.from({ length: Math.max(1, n || 1) }, () => '')
+}
+
+// 복용 횟수를 바꿀 때: 이미 고른 시간은 그대로 두고 칸 수만 N개로 맞춤 (늘리면 빈 칸 추가, 줄이면 뒤에서부터 뺌)
+export function resizeTimes(times, n) {
+  const filled = (times || []).filter(t => t)
+  const rest = (times || []).filter(t => !t)
+  const ordered = [...filled, ...rest]
+  if (ordered.length >= n) return ordered.slice(0, n)
+  return [...ordered, ...Array.from({ length: n - ordered.length }, () => '')]
 }

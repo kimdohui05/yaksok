@@ -6,7 +6,7 @@ import DateField from '../../../components/common/DateField'
 import TimeField from '../../../components/common/TimeField'
 import styles from './MedicineAddPage.module.css'
 import MedicineNameInput from './MedicineNameInput'
-import { analyzePrescription, defaultTimes } from '../utils/prescription'
+import { analyzePrescription, defaultTimes, resizeTimes } from '../utils/prescription'
 import { checkInteractions } from '../utils/durCheck'
 import { checkMedicineName } from '../utils/nameCheck'
 import { listMedications, addMedication } from '../api/medicationStore'
@@ -191,10 +191,12 @@ export default function MedicineAddPage() {
   const updateMed = (key, patch) =>
     setMeds(prev => prev.map(m => (m.key === key ? { ...m, ...patch } : m)))
 
-  // 하루 N회를 고르면 기본 시간으로 채움 ('필요 시'는 시간 그대로)
+  // 하루 N회를 고르면 시간 칸을 N개로 맞춤 (이미 고른 시간은 지우지 않음, '필요 시'는 그대로)
   const changeFrequency = (key, value) => {
     const n = Number(value.match(/하루 (\d)회/)?.[1])
-    updateMed(key, n ? { frequency: value, times: defaultTimes(n) } : { frequency: value })
+    setMeds(prev => prev.map(m => (m.key === key
+      ? (n ? { ...m, frequency: value, times: resizeTimes(m.times, n) } : { ...m, frequency: value })
+      : m)))
   }
 
   const addTime = (key) =>

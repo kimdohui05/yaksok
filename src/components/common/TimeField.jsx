@@ -7,11 +7,17 @@ const HOURS = Array.from({ length: 12 }, (_, i) => i + 1)          // 1 ~ 12
 const MINUTE_TENS = [0, 10, 20, 30, 40, 50]                          // 10분 단위
 const MINUTE_ONES = Array.from({ length: 10 }, (_, i) => i)          // 1분 단위 0 ~ 9
 
-// "13:05" → { ampm: 'pm', hour: 1, minute: 5 }
+// 24시간 → { ampm, hour(1~12), minute }
+const fromHM = (h, m) => ({ ampm: h < 12 ? 'am' : 'pm', hour: h % 12 === 0 ? 12 : h % 12, minute: m })
+
+// "13:05" → { ampm: 'pm', hour: 1, minute: 5 }, 값이 없으면 현재 시각
 const parse = (str) => {
-  if (!str) return { ampm: 'am', hour: 8, minute: 0 }
+  if (!str) {
+    const now = new Date()
+    return fromHM(now.getHours(), now.getMinutes())
+  }
   const [h, m] = str.split(':').map(Number)
-  return { ampm: h < 12 ? 'am' : 'pm', hour: h % 12 === 0 ? 12 : h % 12, minute: m }
+  return fromHM(h, m)
 }
 
 const toStr = ({ ampm, hour, minute }) => {
