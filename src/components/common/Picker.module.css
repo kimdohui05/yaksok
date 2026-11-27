@@ -107,10 +107,13 @@
 .segmentActive { background: #fff; color: var(--tab-active); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 
 .pickLabel { font-size: 12px; font-weight: 700; color: var(--text-sub); margin: 4px 0 8px; }
+.pickHint { margin-left: 4px; font-size: 11px; font-weight: 500; color: var(--text-sub); opacity: 0.8; }
+.pickLabel .pickHint:first-child { margin-left: 0; }
 .chipGrid {
   display: grid; grid-template-columns: repeat(6, 1fr);
   gap: 6px; margin-bottom: 12px;
 }
+.chipGrid5 { grid-template-columns: repeat(5, 1fr); }
 .chip {
   padding: 10px 0; border-radius: 10px;
   border: 1.5px solid var(--border); background: #fff;

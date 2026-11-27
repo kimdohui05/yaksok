@@ -4,7 +4,8 @@ import Icon from './Icon'
 import styles from './Picker.module.css'
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 1)          // 1 ~ 12
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5)         // 0, 5, ... 55
+const MINUTE_TENS = [0, 10, 20, 30, 40, 50]                          // 10분 단위
+const MINUTE_ONES = Array.from({ length: 10 }, (_, i) => i)          // 1분 단위 0 ~ 9
 
 // "13:05" → { ampm: 'pm', hour: 1, minute: 5 }
 const parse = (str) => {
@@ -25,16 +26,14 @@ const formatTimeLabel = (str) => {
   return `${ampm === 'am' ? '오전' : '오후'} ${hour}:${String(minute).padStart(2, '0')}`
 }
 
-// 앱 디자인에 맞춘 시간 선택 (오전/오후 → 시 → 분, 5분 단위)
+// 앱 디자인에 맞춘 시간 선택 (오전/오후 → 시 → 분: 10분 단위 + 1분 단위)
 // value / onChange 는 'HH:mm' 문자열
 export default function TimeField({ value, onChange, placeholder = '시간 선택' }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(() => parse(value))
 
   const openSheet = () => {
-    const p = parse(value)
-    // 5분 단위가 아닌 기존 값은 가장 가까운 5분으로
-    setDraft({ ...p, minute: Math.min(55, Math.round(p.minute / 5) * 5) })
+    setDraft(parse(value))
     setOpen(true)
   }
 
@@ -85,16 +84,34 @@ export default function TimeField({ value, onChange, placeholder = '시간 선�
               ))}
             </div>
 
-            <div className={styles.pickLabel}>분</div>
+            <div className={styles.pickLabel}>
+              분 <span className={styles.pickHint}>10분 단위</span>
+            </div>
             <div className={styles.chipGrid}>
-              {MINUTES.map(mi => (
+              {MINUTE_TENS.map(t => (
                 <button
                   type="button"
-                  key={mi}
-                  className={`${styles.chip} ${draft.minute === mi ? styles.chipActive : ''}`}
-                  onClick={() => setDraft({ ...draft, minute: mi })}
+                  key={t}
+                  className={`${styles.chip} ${Math.floor(draft.minute / 10) * 10 === t ? styles.chipActive : ''}`}
+                  onClick={() => setDraft({ ...draft, minute: t + (draft.minute % 10) })}
                 >
-                  {String(mi).padStart(2, '0')}
+                  {String(t).padStart(2, '0')}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.pickLabel}>
+              <span className={styles.pickHint}>1분 단위</span>
+            </div>
+            <div className={`${styles.chipGrid} ${styles.chipGrid5}`}>
+              {MINUTE_ONES.map(o => (
+                <button
+                  type="button"
+                  key={o}
+                  className={`${styles.chip} ${draft.minute % 10 === o ? styles.chipActive : ''}`}
+                  onClick={() => setDraft({ ...draft, minute: Math.floor(draft.minute / 10) * 10 + o })}
+                >
+                  {o}
                 </button>
               ))}
             </div>
