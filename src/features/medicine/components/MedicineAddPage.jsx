@@ -58,12 +58,15 @@ export default function MedicineAddPage() {
   // 처방 시작일 (모든 약 공통, 총 투약 일수는 약마다)
   const [prescriptionDate, setPrescriptionDate] = useState(today())
 
-  const makeMed = (name, ingredient, { timesPerDay, days, dose, verified = null, suggestedName = null } = {}) => ({
+  // 서버가 준 카테고리가 화면 목록에 있는 값일 때만 사용
+  const validCategory = (c) => (c && CATEGORIES.some(x => x.key === c) ? c : '')
+
+  const makeMed = (name, ingredient, { timesPerDay, days, dose, verified = null, suggestedName = null, category = '' } = {}) => ({
     key: ++keyRef.current,
     name,
     ingredient,
     dose: dose || '',
-    category: '', // 비어 있으면 약 이름으로 추정한 카테고리 사용
+    category: validCategory(category), // 서버(식약처 분류) 카테고리, 비어 있으면 약 이름으로 추정한 카테고리 사용
     frequency: timesPerDay >= 1 && timesPerDay <= 3 ? `하루 ${timesPerDay}회` : '',
     times: timesPerDay ? defaultTimes(timesPerDay) : [''],
     days: Number(days) > 0 ? String(days) : '',
@@ -147,8 +150,8 @@ export default function MedicineAddPage() {
 
   // ── 직접 입력 ──
   // 서버에서 확인된 약만 2단계로 넘어감 (없는 약이면 1단계에서 막음)
-  const goManualStep2 = async (name = manualName.trim()) => {
-    const list = [makeMed(name, '직접 입력', { verified: true })]
+  const goManualStep2 = async (name = manualName.trim(), category = '') => {
+    const list = [makeMed(name, '직접 입력', { verified: true, category })]
     setMeds(list)
     await recheckInteractions(list)
     setNotFound(null)
@@ -157,14 +160,15 @@ export default function MedicineAddPage() {
 
   const handleManualNext = async () => {
     if (!manualName.trim() || checking) return
-    // 연관검색어 후보에서 고른 약은 이름 확인을 통과한 것으로 처리
-    if (manualPicked) {
-      await goManualStep2()
-      return
-    }
     setNotFound(null)
     setChecking(true)
     try {
+      // 연관검색어 후보에서 고른 약은 공식 이름이라 통과 (카테고리만 받아옴, 실패해도 진행)
+      if (manualPicked) {
+        const picked = await checkMedicineName(manualName)
+        await goManualStep2(manualName.trim(), picked?.verified ? picked.category : '')
+        return
+      }
       const result = await checkMedicineName(manualName)
       if (!result) {
         // 서버 오류로 확인 못 함 → 넘어가지 않음
@@ -177,7 +181,7 @@ export default function MedicineAddPage() {
       }
       // 한 글자 오타는 서버가 고친 공식 이름으로 넘어감
       setManualName(result.name)
-      await goManualStep2(result.name)
+      await goManualStep2(result.name, result.category)
     } finally {
       setChecking(false)
     }
@@ -213,8 +217,11 @@ export default function MedicineAddPage() {
     const result = await checkMedicineName(name)
     const verified = result ? result.verified : null
     const suggestedName = result && !result.verified ? (result.suggestions[0] || null) : null
-    // 확인하는 동안 이름이 또 바뀌었으면 결과를 버림
-    setMeds(prev => prev.map(m => (m.key === key && m.name === name ? { ...m, verified, suggestedName } : m)))
+    const category = result?.verified ? validCategory(result.category) : ''
+    // 확인하는 동안 이름이 또 바뀌었으면 결과를 버림 (사용자가 고른 카테고리는 덮어쓰지 않음)
+    setMeds(prev => prev.map(m => (m.key === key && m.name === name
+      ? { ...m, verified, suggestedName, category: m.category || category }
+      : m)))
   }
 
   // 연관검색어에서 고른 이름 → 확인된 약
@@ -222,15 +229,26 @@ export default function MedicineAddPage() {
     const next = meds.map(m => (m.key === key ? { ...m, name, verified: true, suggestedName: null } : m))
     setMeds(next)
     recheckInteractions(next)
+    fillCategory(key, name)
+  }
+
+  // 서버(식약처 분류)에서 카테고리를 받아 비어 있을 때만 채움
+  const fillCategory = async (key, name) => {
+    const result = await checkMedicineName(name)
+    const category = result?.verified ? validCategory(result.category) : ''
+    if (!category) return
+    setMeds(prev => prev.map(m => (m.key === key && m.name === name && !m.category ? { ...m, category } : m)))
   }
 
   // "혹시 OOO인가요?" → [이 이름으로 바꾸기] (자동으로 바꾸지 않음)
   const applySuggestion = (key) => {
+    const target = meds.find(m => m.key === key)
     const next = meds.map(m =>
       m.key === key ? { ...m, name: m.suggestedName, verified: true, suggestedName: null } : m
     )
     setMeds(next)
     recheckInteractions(next)
+    if (target?.suggestedName) fillCategory(key, target.suggestedName)
   }
 
   const removeMed = (key) => {
