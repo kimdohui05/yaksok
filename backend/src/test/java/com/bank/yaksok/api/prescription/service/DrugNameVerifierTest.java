@@ -86,13 +86,13 @@ class DrugNameVerifierTest {
                         "타이레놀정500밀리그람(아세트아미노펜)", "게보린정"),
                 10);
         org.junit.jupiter.api.Assertions.assertEquals(
-                java.util.List.of("타이레놀정500밀리그람", "타이레놀정160밀리그램", "어린이타이레놀현탁액"), ranked);
+                java.util.List.of("타이레놀", "어린이타이레놀"), ranked);
     }
 
     @Test
     void 연관검색어는_띄어쓰기를_무시한다() {
         var ranked = DrugNameVerifier.rankAutocomplete("타이 레놀", java.util.List.of("타이레놀정160밀리그램"), 10);
-        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of("타이레놀정160밀리그램"), ranked);
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of("타이레놀"), ranked);
     }
 
     @Test
@@ -100,5 +100,22 @@ class DrugNameVerifierTest {
         org.junit.jupiter.api.Assertions.assertFalse(DrugNameVerifier.isOneCharOff("앙", "앙정"));
         org.junit.jupiter.api.Assertions.assertFalse(DrugNameVerifier.isOneCharOff("앙정", "앙코정"));
         org.junit.jupiter.api.Assertions.assertTrue(DrugNameVerifier.isOneCharOff("타이래놀정", "타이레놀정500밀리그람"));
+    }
+
+    @Test
+    void 짧은_이름은_성분_용량_제형을_뺀다() {
+        org.junit.jupiter.api.Assertions.assertEquals("타이레놀", DrugNameVerifier.simpleName("타이레놀정500밀리그람(아세트아미노펜)"));
+        org.junit.jupiter.api.Assertions.assertEquals("아스피린프로텍트", DrugNameVerifier.simpleName("아스피린프로텍트정100밀리그램"));
+        org.junit.jupiter.api.Assertions.assertEquals("판콜에이", DrugNameVerifier.simpleName("판콜에이내복액"));
+        org.junit.jupiter.api.Assertions.assertEquals("타이레놀콜드에스", DrugNameVerifier.simpleName("타이레놀콜드에스정"));
+    }
+
+    @Test
+    void 짧은_이름으로_고른_약도_같은_약으로_확인된다() {
+        org.junit.jupiter.api.Assertions.assertTrue(DrugNameVerifier.isSameDrug("타이레놀", "타이레놀정500밀리그람(아세트아미노펜)"));
+        org.junit.jupiter.api.Assertions.assertTrue(DrugNameVerifier.isSameDrug("타이레놀정", "타이레놀정500밀리그람(아세트아미노펜)"));
+        org.junit.jupiter.api.Assertions.assertTrue(DrugNameVerifier.isSameDrug("판콜에이", "판콜에이내복액"));
+        org.junit.jupiter.api.Assertions.assertFalse(DrugNameVerifier.isSameDrug("타이레놀", "타이레놀콜드에스정"));
+        org.junit.jupiter.api.Assertions.assertFalse(DrugNameVerifier.isSameDrug("타이레놀정500mg", "타이레놀정160밀리그램"));
     }
 }
