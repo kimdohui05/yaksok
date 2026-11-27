@@ -29,4 +29,15 @@ public class UserEntity {
     @Column(updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    /** 복약 알림(메일·PC 알림) 받기. 칸이 생기기 전에 가입한 사용자는 null → 켜짐으로 봄 */
+    private Boolean alarmEnabled;
+
+    public boolean isAlarmOn() {
+        return !Boolean.FALSE.equals(alarmEnabled);
+    }
+
+    public void changeAlarmEnabled(boolean enabled) {
+        this.alarmEnabled = enabled;
+    }
 }
