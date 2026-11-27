@@ -24,8 +24,8 @@ public class DrugVerifyController {
     /**
      * 약 이름 확인. 로그인 필요.
      * 예: GET /api/drugs/verify?name=타이레놀정500mg
-     *  - 있는 약:  { verified: true,  name: "타이레놀정500mg", message: null, suggestions: [] }
-     *  - 없는 약:  { verified: false, name: null, message: "그런 약은 존재하지 않습니다.", suggestions: [...] }
+     *  - 있는 약:  { verified: true,  name: "타이레놀정500mg", message: null, category: "해열·진통", suggestions: [] }
+     *  - 없는 약:  { verified: false, name: null, message: "그런 약은 존재하지 않습니다.", category: null, suggestions: [...] }
      *  - 빈 이름:  400 { message }
      */
     @GetMapping("/verify")
@@ -36,9 +36,10 @@ public class DrugVerifyController {
         }
         DrugNameVerifier.Result result = drugNameVerifier.verify(input, null);
         if (result.verified()) {
-            return ResponseEntity.ok(new DrugVerifyResponse(input, true, result.name(), null, List.of()));
+            return ResponseEntity.ok(new DrugVerifyResponse(input, true, result.name(), null,
+                    drugNameVerifier.categoryOf(input), List.of()));
         }
         return ResponseEntity.ok(new DrugVerifyResponse(input, false, null,
-                DrugVerifyResponse.NOT_FOUND_MESSAGE, drugNameVerifier.suggest(input, MAX_SUGGESTIONS)));
+                DrugVerifyResponse.NOT_FOUND_MESSAGE, null, drugNameVerifier.suggest(input, MAX_SUGGESTIONS)));
     }
 }
