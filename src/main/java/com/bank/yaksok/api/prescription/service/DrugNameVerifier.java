@@ -260,23 +260,28 @@ public class DrugNameVerifier implements DisposableBean {
     // ───── 아래는 외부 호출 없는 순수 로직 (단위 테스트 대상) ─────
 
     /**
-     * 연관검색어 정렬: 화면용 이름(괄호 제거)으로 바꾸고 중복 제거 →
+     * 연관검색어 정렬: 짧은 이름(성분·용량·제형 제거, 예: "타이레놀")으로 바꾸고 중복 제거 →
      * 입력으로 시작하는 이름 먼저 → 입력이 앞쪽에 나오는 이름 → 짧은 이름 순.
      * 입력 글자가 아예 안 들어간 이름은 뺀다.
      */
     static List<String> rankAutocomplete(String query, List<String> candidates, int limit) {
         String q = normalize(query);
-        Set<String> seen = new LinkedHashSet<>();
-        List<String> unique = new ArrayList<>();
+        java.util.Map<String, String> unique = new java.util.LinkedHashMap<>(); // 짧은 이름(정규화) → 짧은 이름
+        java.util.Map<String, Integer> position = new java.util.HashMap<>();
         for (String c : candidates) {
             if (c == null || c.isBlank()) continue;
-            String display = displayName(c);
-            String key = normalize(display);
-            if (!display.isEmpty() && key.contains(q) && seen.add(key)) unique.add(display);
+            String full = normalize(displayName(c));
+            int at = full.indexOf(q);
+            if (at < 0) continue; // 입력 글자가 안 들어간 이름은 뺀다
+            String simple = simpleName(c);
+            String key = normalize(simple);
+            if (unique.putIfAbsent(key, simple) == null) position.put(key, at);
         }
-        unique.sort(java.util.Comparator.comparingInt((String c) -> normalize(c).indexOf(q))
+        List<String> sorted = new ArrayList<>(unique.keySet());
+        sorted.sort(java.util.Comparator.comparingInt((String k) -> position.get(k))
                 .thenComparingInt(String::length));
-        return unique.size() > limit ? List.copyOf(unique.subList(0, limit)) : List.copyOf(unique);
+        List<String> result = sorted.stream().map(unique::get).toList();
+        return result.size() > limit ? List.copyOf(result.subList(0, limit)) : result;
     }
 
     /** 후보를 화면용 이름으로 바꾸고 중복을 뺀 뒤, 입력과 글자 차이가 적은 순(같으면 짧은 이름 먼저)으로 정렬 */
@@ -298,12 +303,12 @@ public class DrugNameVerifier implements DisposableBean {
     /** 사실상 같은 약 이름인지 (괄호·공백·단위 표기 차이 무시, 읽은 이름에 용량이 없으면 공식명 용량도 무시) */
     static boolean isSameDrug(String aiName, String official) {
         String target = normalize(aiName);
-        return base(target, official).equals(target);
+        return base(target, official).equals(key(target));
     }
 
     /** 한 글자만 다른지 (OCR 오인식 수준). 읽은 이름에 용량 숫자가 있으면 숫자가 같아야 한다. */
     static boolean isOneCharOff(String aiName, String official) {
-        String target = normalize(aiName);
+        String target = key(normalize(aiName));
         if (target.length() < MIN_CORRECTION_LENGTH) {
             return false; // "앙" 같은 짧은 이름은 한 글자 차이로 엉뚱한 약이 될 수 있어 교정하지 않음
         }
@@ -327,14 +332,36 @@ public class DrugNameVerifier implements DisposableBean {
     /** 이름 검색으로 교정할 때: 읽은 이름에 용량이 없으면 공식명에서도 용량은 붙이지 않는다 */
     static String correctedName(String aiName, String official) {
         return digits(normalize(aiName)).isEmpty()
-                ? shortName(displayName(official))
+                ? shortName(displayName(official))   // 제형은 남김 ("폰탈한캡슐" → "폰탈캡슐")
                 : displayName(official);
     }
 
     /** 비교 대상: 읽은 이름에 숫자가 없으면 후보에서도 용량 이후를 뺀다 */
+    /** 입력에 용량이 없으면 공식 이름도 용량·제형을 빼고 비교 ("타이레놀" = "타이레놀정500밀리그람") */
     private static String base(String normalizedTarget, String candidate) {
         String c = normalize(candidate);
-        return digits(normalizedTarget).isEmpty() ? shortName(c) : c;
+        return digits(normalizedTarget).isEmpty() ? stripForm(shortName(c)) : c;
+    }
+
+    /** 비교용 입력: 용량이 없으면 제형도 뺀다 ("타이레놀정" → "타이레놀") */
+    private static String key(String normalizedTarget) {
+        return digits(normalizedTarget).isEmpty() ? stripForm(normalizedTarget) : normalizedTarget;
+    }
+
+    /** 끝에 붙은 제형(정·캡슐·시럽·액 등)을 뺀다. 빼고 2글자 미만이 되면 그대로 둔다 */
+    static String stripForm(String name) {
+        String stripped = FORM_SUFFIX.matcher(name).replaceFirst("");
+        return stripped.length() >= 2 ? stripped : name;
+    }
+
+    private static final java.util.regex.Pattern FORM_SUFFIX = java.util.regex.Pattern.compile(
+            "(연질캡슐|경질캡슐|서방캡슐|캡슐|필름코팅정|서방정|장용정|츄어블정|구강붕해정|발포정|정|시럽|현탁액|내복액|"
+                    + "점안액|점비액|주사액|액|과립|산|주|크림|연고|겔|패취|패치)$");
+
+    /** 화면용 짧은 이름: 성분 괄호·용량·제형을 뺀 약 이름 ("타이레놀정500밀리그람(아세트아미노펜)" → "타이레놀") */
+    static String simpleName(String official) {
+        String simple = stripForm(shortName(displayName(official)));
+        return simple.isEmpty() ? displayName(official) : simple;
     }
 
     /** "폰탈캡슐(메페남산)" → "폰탈캡슐" (화면·저장용, 괄호는 겹쳐 있어도 모두 제거) */
