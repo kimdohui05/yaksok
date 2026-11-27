@@ -46,6 +46,9 @@ public class DrugNameVerifier implements DisposableBean {
     /** 공공데이터 호출용 (호출은 대부분 네트워크 대기라 가상 스레드로 동시에 보낸다) */
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
+    /** 한 글자 오타 교정은 3글자 이상 이름만 */
+    static final int MIN_CORRECTION_LENGTH = 3;
+
     /** 연관검색어는 2글자부터 (1글자는 결과가 너무 많고 의미가 없다) */
     static final int MIN_AUTOCOMPLETE_LENGTH = 2;
 
@@ -276,6 +279,9 @@ public class DrugNameVerifier implements DisposableBean {
     /** 한 글자만 다른지 (OCR 오인식 수준). 읽은 이름에 용량 숫자가 있으면 숫자가 같아야 한다. */
     static boolean isOneCharOff(String aiName, String official) {
         String target = normalize(aiName);
+        if (target.length() < MIN_CORRECTION_LENGTH) {
+            return false; // "앙" 같은 짧은 이름은 한 글자 차이로 엉뚱한 약이 될 수 있어 교정하지 않음
+        }
         String c = base(target, official);
         if (!digits(target).isEmpty() && !digits(c).equals(digits(target))) {
             return false; // 용량이 다르면 다른 약
