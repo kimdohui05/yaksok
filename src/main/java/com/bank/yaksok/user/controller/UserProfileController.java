@@ -31,7 +31,7 @@ public class UserProfileController {
 
     /**
      * 앱 설정 변경. 로그인 필요.
-     * PUT /api/user/settings  { "alarmEnabled": false } → 복약 알림(메일·PC 알림)을 서버에서 보내지 않음
+     * PUT /api/user/settings  { "alarmEnabled": false } → 복약 알림(PC 알림)을 서버에서 보내지 않음
      */
     @PutMapping("/settings")
     @Transactional
