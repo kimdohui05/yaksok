@@ -35,7 +35,7 @@ export default function MyPage() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [medicines, setMedicines] = useState([])
-  const [alarmOn, setAlarmOn] = useState(getAlarmEnabledCached) // 서버 복약 알림(메일·PC 알림) 받기
+  const [alarmOn, setAlarmOn] = useState(getAlarmEnabledCached) // 서버 복약 알림(PC 알림) 받기
   const [alarmBusy, setAlarmBusy] = useState(false)
   const [doneMeds, setDoneMeds] = useState(() => [...loadDoneCached()]) // 오늘 먹은 약 id (서버 기준)
   const [loading, setLoading] = useState(true)
@@ -90,7 +90,7 @@ export default function MyPage() {
     }
   }
 
-  // 복약 알림 켜기/끄기: 서버에 저장 (끄면 서버가 메일·PC 알림을 보내지 않음)
+  // 복약 알림 켜기/끄기: 서버에 저장 (끄면 서버가 PC 알림을 보내지 않음)
   const handleAlarmToggle = async () => {
     if (alarmBusy) return
     const next = !alarmOn

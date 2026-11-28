@@ -15,7 +15,7 @@ export const cacheAlarmEnabled = (enabled) => {
   try { localStorage.setItem(ALARM_KEY, String(enabled !== false)) } catch {}
 }
 
-// 복약 알림 켜기/끄기 (서버가 메일·PC 알림을 보낼지 결정). 실패하면 예외
+// 복약 알림 켜기/끄기 (서버가 PC 알림을 보낼지 결정). 실패하면 예외
 export async function saveAlarmEnabled(enabled) {
   const res = await client.put('/api/user/settings', { alarmEnabled: enabled })
   cacheAlarmEnabled(res.data?.alarmEnabled ?? enabled)

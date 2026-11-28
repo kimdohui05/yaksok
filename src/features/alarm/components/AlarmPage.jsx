@@ -35,7 +35,7 @@ const formatAlarmAt = (alarmAt) => {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${time}`
 }
 
-// 복약 알림은 서버가 보냄 (PC 알림 센터 + 메일). 이 화면은 서버에 기록된 알림 내역과 알림 켜기/끄기만 담당
+// 복약 알림은 서버가 보냄 (PC 알림 센터). 이 화면은 서버에 기록된 알림 내역과 알림 켜기/끄기만 담당
 export default function AlarmPage() {
   const loggedIn = isLoggedIn()
   const [medSchedule, setMedSchedule] = useState([])
@@ -82,7 +82,7 @@ export default function AlarmPage() {
     readAllNotifications().catch(() => {})
   }
 
-  // 복약 알림 켜기/끄기: 서버에 저장 (끄면 서버가 메일·PC 알림을 보내지 않음)
+  // 복약 알림 켜기/끄기: 서버에 저장 (끄면 서버가 PC 알림을 보내지 않음)
   const toggleAlarm = async () => {
     if (alarmBusy) return
     const next = !alarmEnabled
@@ -119,7 +119,7 @@ export default function AlarmPage() {
           <div className={styles.settingTitle}>복약 알림</div>
           <div className={styles.settingDesc}>
             {alarmEnabled
-              ? '복약 시간마다 PC 알림과 메일로 알려드려요'
+              ? '복약 시간마다 PC 알림으로 알려드려요'
               : '알림이 꺼져 있어요'}
           </div>
         </div>
